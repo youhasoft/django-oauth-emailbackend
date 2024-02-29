@@ -1,0 +1,28 @@
+{
+    "python.testing.cwd": "",
+    "python.languageServer": "Pylance",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.diagnosticMode": "openFilesOnly",
+    "python.analysis.indexing": true,
+    "python.analysis.packageIndexDepths": [
+        { 
+            "name": "",
+            "depth": 3,
+            "includeAllSymbols": true
+        }
+        ,
+        { 
+            "name": "django",
+            "depth": 10,
+            "includeAllSymbols": false
+        }
+    ],
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/oauth_emailbackend/config",
+        "${workspaceFolder}/venv/lib/python3.10/site-packages" 
+    ],
+    "python.analysis.userFileIndexingLimit": -1,
+    "python.terminal.activateEnvironment": true,
+    "editor.tabSize": 4,
+    "editor.suggest.matchOnWordStartOnly": true
+}

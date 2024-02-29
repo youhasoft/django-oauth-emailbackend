@@ -1,0 +1,91 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrastyle %}{{ block.super }}
+    <style>
+        a.login-oauth {
+            margin-left: 2em;
+            background-image: url({% static 'img/tooltag-add.svg' %});
+            background-repeat: no-repeat;
+            background-position: right 7px center;
+            padding-right: 26px;
+            display: inline-block;
+            padding: 3px 12px;
+            background: var(--selected-bg);
+            color: var(--body-loud-color);
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            border-radius: 15px;
+            line-height: 1.88em;
+            display: none;
+        }
+        a.login-oauth:hover {
+            background-color: var(--accent);
+        }
+        a.login-oauth span#oauth_name {
+            font-weight: bold;
+        }
+    </style>
+{% endblock %}
+{% block extrahead %}{{ block.super }}
+    <script>
+        const original_pk = '{{original.pk}}';
+        function loginOAuth() {
+            let url = '';
+            if (!original_pk) {
+                alert('먼저 폼을 저장한 후 로그인하십시오.');
+                return;
+            }
+            let send_method = django.jQuery('input[name=send_method]:checked').val();
+            if (send_method == 'smtp') {
+                alert('[사용자 지정 SMTP 서버 발송방법]에서는 선택할 수 없는 기능입니다.');
+                return;
+            }
+            /*
+            // https://youhasoft.com/celery_emailbackend/oauth2callback
+            if (send_method == 'gmail') {
+                url = 'https://accounts.google.com/o/oauth2/auth/oauthchooseaccount?client_id=&'
+            } else if (send_method == 'outlook') {
+                alert('현재 지원하지 않습니다.')
+                return;
+            }
+            */
+            let provider = django.jQuery('#id_provider option:selected');
+            if (provider && provider.val()) {
+                window.open('../redirect2provider/' + provider.val(), '_blank', 'width=1000,height=800');
+            }
+        }
+        function onProviderChanged(e) {
+            let provider = django.jQuery('option:selected', this);
+            if (provider.val()) {
+                django.jQuery('span#oauth_name').text( provider.text() );
+                django.jQuery('a.login-oauth').show()
+            } else {
+                django.jQuery('a.login-oauth').hide()
+            }
+        }
+        function onSentMethodChange(e)  {
+            // console.log( this );
+            // console.log( django.jQuery(this).closest('label').text() );
+            let send_method = django.jQuery(this).val();
+            if (send_method == 'smtp' || !send_method) {
+                django.jQuery('fieldset.oauthapi-option').hide();
+                django.jQuery('fieldset.smtp-option').show();
+            } else {
+                django.jQuery('fieldset.smtp-option').hide();
+                django.jQuery('fieldset.oauthapi-option').show();
+            }
+        }
+        django.jQuery(function( ) {
+            django.jQuery('input[name=send_method]').on('change', onSentMethodChange );
+            django.jQuery('input[name=send_method]:checked').trigger('change');
+
+            // Add OAuth popup button 
+            django.jQuery('#id_provider').closest('.related-widget-wrapper')
+                .append('<a href="javascript:loginOAuth();void(0);" class="login-oauth"><span id="oauth_name"></span> Login</a>');
+
+            django.jQuery('#id_provider').on('change', onProviderChanged );
+            django.jQuery('#id_provider').trigger('change');
+        });
+    </script>
+{% endblock %}

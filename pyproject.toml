@@ -1,0 +1,18 @@
+[project]
+name = "django-oauth-emailbackend"
+version = "0.0.1"
+authors = [
+  { name="Sun-Yeon Lee", email="odop@youhasoft.com" },
+]
+description = "Django emailbackend with Celery that using IMAP and google OAuth api"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/youhasoft/django-oauth-emailbackend"
+Issues = "https://github.com/youhasoft/django-oauth-emailbackend/issues"

@@ -80,12 +80,14 @@
             django.jQuery('input[name=send_method]').on('change', onSentMethodChange );
             django.jQuery('input[name=send_method]:checked').trigger('change');
 
-            // Add OAuth popup button 
-            django.jQuery('#id_provider').closest('.related-widget-wrapper')
-                .append('<a href="javascript:loginOAuth();void(0);" class="login-oauth"><span id="oauth_name"></span> Login</a>');
+            if (original_pk) {
+                // Add OAuth popup button 
+                django.jQuery('#id_provider').closest('.related-widget-wrapper')
+                    .append('<a href="javascript:loginOAuth();void(0);" class="login-oauth"><span id="oauth_name"></span> Login</a>');
 
-            django.jQuery('#id_provider').on('change', onProviderChanged );
-            django.jQuery('#id_provider').trigger('change');
+                django.jQuery('#id_provider').on('change', onProviderChanged );
+                django.jQuery('#id_provider').trigger('change');
+            }
         });
     </script>
 {% endblock %}

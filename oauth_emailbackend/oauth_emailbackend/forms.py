@@ -19,6 +19,7 @@ class EmailHostAdminForm(ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.fields['api_token'].disabled = True
         self.fields['api_token'].widget.attrs['rows'] = 3
 
 

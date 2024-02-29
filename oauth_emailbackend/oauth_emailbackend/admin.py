@@ -89,27 +89,12 @@ class EmailHostAdmin(admin.ModelAdmin):
     form = EmailHostAdminForm
     save_on_top = True
     """
-    # https://accounts.google.com/o/oauth2/auth/oauthchooseaccount
-    ?client_id=
-    &scope=email https://www.googleapis.com/auth/gmail.send
-    &response_type=code
-    &access_type=offline
-    &approval_prompt=force
-    &redirect_uri=https%3A%2F%2Fupdate.synology.com%2Fgmail_notification%2Fredirect.php
-    &state=_mailFormOAuthCallback_gmail%40https%3A%2F%2F192-168-0-138.youhakr.direct.quickconnect.to%3A5001%2Fwebman%2Fmodules%2FPersonalSettings%2Findex_ds.php%40use_pkce
-    &code_challenge=MfEPDocNeduELozJMp5HoeaJDisTT5FiWd6W_JU4bts
-    &code_challenge_method=S256
-    &service=lso
-    &o2v=1
-    &theme=glif
-    &flowName=GeneralOAuthFlow
-
     # gcloud console 프로젝트 생성하여 OAuth 동의화면을 구성한다.
     https://console.cloud.google.com/apis/credentials/consent?project=gmailapi-415604
     """
     fieldsets = (
             (None, {
-                'fields': ( 'is_active', 'database', 'site', 'host', 'user', 'send_method',  ),
+                'fields': ( 'is_active', 'database', 'site', 'host', 'send_method', 'user',  ),
             }),
             (mark_safe('''OAuth API  
                        '''), 
@@ -134,7 +119,7 @@ class EmailHostAdmin(admin.ModelAdmin):
                 name='redirect2oauthapi',
             ),
         ] + super().get_urls()
-
+    
     def redirect2provider_view(self, request, id, provider_id):
         try:
             provider = Provider.objects.get(id=provider_id)

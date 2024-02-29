@@ -89,10 +89,11 @@ class Provider(models.Model):
                                 "&access_type=offline" \
                                 "&approval_prompt=force" \
                                 "&flowName=GeneralOAuthFlow" \
-                                f"&redirect_uri={redirect_uri}"
+                                f"&redirect_uri={redirect_uri}" \
+                                f"&state=OAuthCallback_gmail%40objectId_{self.id}" 
 
         print("*authorization_url= ", authorization_url)
-        
+
         return authorization_url
 
     """

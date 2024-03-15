@@ -4,6 +4,30 @@ from email.mime.base import MIMEBase
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, EmailMessage
+from django.conf import settings
+from django.apps import apps
+from functools import lru_cache
+
+@lru_cache
+def get_provider_choices():
+    providers = []
+    for provider_name, instance in apps.get_app_config('oauth_emailbackend').providers.items():
+        providers.append((provider_name, instance.get_provider_name()))
+
+    return providers
+
+@lru_cache
+def get_provider_name(provider):
+    instance = apps.get_app_config('oauth_emailbackend').providers.get(provider, None)
+    if instance:
+        return instance.get_provider_name()
+
+@lru_cache
+def get_provider_instance(provider):
+    return apps.get_app_config('oauth_emailbackend').providers[provider]
+    
+    
+
 
 
 def chunked(iterator, chunksize):

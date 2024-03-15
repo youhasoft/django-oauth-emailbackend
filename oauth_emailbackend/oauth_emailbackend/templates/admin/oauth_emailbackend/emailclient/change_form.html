@@ -41,18 +41,14 @@
                 alert('[사용자 지정 SMTP 서버 발송방법]에서는 선택할 수 없는 기능입니다.');
                 return;
             }
-            /*
-            // https://youhasoft.com/celery_emailbackend/oauth2callback
-            if (send_method == 'gmail') {
-                url = 'https://accounts.google.com/o/oauth2/auth/oauthchooseaccount?client_id=&'
-            } else if (send_method == 'outlook') {
-                alert('현재 지원하지 않습니다.')
-                return;
-            }
-            */
-            let provider = django.jQuery('#id_provider option:selected');
-            if (provider && provider.val()) {
-                window.open('../redirect2provider/' + provider.val(), '_blank', 'width=1000,height=800');
+            
+            let oauthapi = django.jQuery('#id_oauthapi option:selected');
+            if (oauthapi && oauthapi.val()) {
+                let url = '../redirect2provider/' + oauthapi.val()
+                alert(url);
+                window.open(url, '_blank', 'width=1000,height=800');
+            } else {
+                alert('Invalid OAuth API');
             }
         }
         function onProviderChanged(e) {
@@ -82,11 +78,11 @@
 
             if (original_pk) {
                 // Add OAuth popup button 
-                django.jQuery('#id_provider').closest('.related-widget-wrapper')
+                django.jQuery('#id_oauthapi').closest('.related-widget-wrapper')
                     .append('<a href="javascript:loginOAuth();void(0);" class="login-oauth"><span id="oauth_name"></span> Login</a>');
 
-                django.jQuery('#id_provider').on('change', onProviderChanged );
-                django.jQuery('#id_provider').trigger('change');
+                django.jQuery('#id_oauthapi').on('change', onProviderChanged );
+                django.jQuery('#id_oauthapi').trigger('change');
             }
         });
     </script>

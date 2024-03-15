@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-a#)$5ey7n$5)ad82=e*v=33la)smlg*mq6$&oibj!6riki!r(7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 SITE_ID = 1
 
@@ -44,7 +44,9 @@ INSTALLED_APPS = [
     # 'oauth_emailbackend.emailbackend',
     'oauth_emailbackend',
 
-    # "sslserver",
+    # Used for callback test.
+    # python manage.py runsslserver 0.0.0.0:8443  
+    "sslserver",
 ]
 
 MIDDLEWARE = [
@@ -137,15 +139,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 #----- django-oauth-emailbackend settings -----#
-EMAIL_BACKEND = 'oauth_emailbackend.emailbackend.backends.OAuthEmailBackend'
+EMAIL_BACKEND = 'oauth_emailbackend.emailbackend.backends.OAuthEmailBackend' # OAuthCeleryEmailBackend
 OAUTH_EMAILBACKEND_DBNAME = 'default'
-
+OAUTH_EMAILBACKEND_PROVIDERS = (
+    'oauth_emailbackend.providers.gmail',
+)
+# 콜백 도메인을 현재 사이트 도메인과 다르게 지정하려면 설정. Host with scheme 예) https://domain.to
+OAUTH_EMAILBACKEND_CALLBACK_HOST = None
 
 # https://console.cloud.google.com에서 API 생성 - OAuth 동의화면 구성 - 사용자 인증 정보 만들기 
 # 클라이언트 아이디 & 보안 비밀번호
-OAUTH_EMAILBACKEND_GMAIL_CLIENT_ID = '831886363443-r9717rve6kqpf2pbut5l42u8b9fso3ir.apps.googleusercontent.com'
-OAUTH_EMAILBACKEND_GMAIL_CLIENT_SECRET = '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' 
-# 인증 후 콜백주소 
-OAUTH_EMAILBACKEND_GMAIL_CALLBACK = 'https://youhasoft.com/oauth_emailbackend/oauth2callback'
+# OAUTH_EMAILBACKEND_GMAIL_CLIENT_ID = '831886363443-r9717rve6kqpf2pbut5l42u8b9fso3ir.apps.googleusercontent.com'
+# OAUTH_EMAILBACKEND_GMAIL_CLIENT_SECRET = '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' 
+# # 인증 후 콜백주소 
+# OAUTH_EMAILBACKEND_GMAIL_CALLBACK = 'https://dev.youhasoft.com:8443/oauth_emailbackend/oauth2callback/gmail'
 
 #----- celery settings -----#

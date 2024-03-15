@@ -1,13 +1,13 @@
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
 from django.urls import path
-
-from .forms import EmailHostAdminForm, ProviderAdminForm
-from .models import Provider, SendHistory, EmailHost
+from oauth_emailbackend.utils import get_provider_name
 from django.utils.translation import gettext_lazy, gettext_lazy as _
 from django.core.mail.message import EmailMultiAlternatives
 from django.utils.html import strip_tags
 from django.utils.safestring import mark_safe
+from .forms import EmailClientAdminForm, OAuthAPIAdminForm
+from .models import EmailClient, OAuthAPI, SendHistory, EmailClient
 
 # def resend_email(modeladmin, request, queryset):
 #     """
@@ -37,12 +37,15 @@ from django.utils.safestring import mark_safe
 
 
 
-@admin.register(Provider)
-class ProviderAdmin(admin.ModelAdmin):
-    list_display = ('name', 'client_id', 'created', )
-    search_fields = ('name',  ) 
-    form = ProviderAdminForm
+@admin.register(OAuthAPI)
+class OAuthAPIAdmin(admin.ModelAdmin):
+    list_display = ('provider_display', 'client_id', 'created', )
+    search_fields = ('provider',  ) 
+    form = OAuthAPIAdminForm
 
+    def provider_display(self, obj):
+        return "%s" % get_provider_name( obj.provider )
+    provider_display.short_description = 'Provider'
 
 @admin.register(SendHistory)
 class SendHistoryAdmin(admin.ModelAdmin):
@@ -76,17 +79,17 @@ class SendHistoryAdmin(admin.ModelAdmin):
         
 
 
-@admin.register(EmailHost)
-class EmailHostAdmin(admin.ModelAdmin):
-    list_display = ('site', 'host', 'send_method', 'provider', 'security_protocol', 'created', )
+@admin.register(EmailClient)
+class EmailClientAdmin(admin.ModelAdmin):
+    list_display = ('site', 'send_method', 'oauthapi', 'security_protocol', 'created', )
     search_fields = ('site__name', 'site__domain', 'host' )
     list_filter = (
            'site',
            'send_method',
-           'provider',
+           'oauthapi',
         )
     raw_id_fields = ('site',) #'manuscript', 
-    form = EmailHostAdminForm
+    form =EmailClientAdminForm
     save_on_top = True
     """
     # gcloud console 프로젝트 생성하여 OAuth 동의화면을 구성한다.
@@ -94,37 +97,39 @@ class EmailHostAdmin(admin.ModelAdmin):
     """
     fieldsets = (
             (None, {
-                'fields': ( 'is_active', 'database', 'site', 'host', 'send_method', 'user',  ),
+                'fields': ( 'is_active', 'site', 'database', 'send_method', 'user',  ),
             }),
             (mark_safe('''OAuth API  
                        '''), 
                        {
-                'fields': ( 'provider', 'api_token', ),
+                'fields': ( 'oauthapi', 'api_token', ),
                 'classes': ('oauthapi-option',)
             }),
             ("SMTP", {
-                'fields': ( 'security_protocol', 'port', 'password', ),
+                'fields': ( 'smtp_host', 'security_protocol', 'port', 'password', ),
                 'classes': ('smtp-option',)
             }),
             ("Email Addresses", {
-                'fields': ( 'from_email', 'reply_to', 'cc', 'bcc' ),
+                'fields': ('reply_to', 'cc', 'bcc' ),
             }),
     )
 
     def get_urls(self):
         return [
             path(
-                '<id>/redirect2provider/<provider_id>',
+                '<emailclient_id>/redirect2provider/<api_id>',
                 self.admin_site.admin_view(self.redirect2provider_view),
                 name='redirect2oauthapi',
             ),
         ] + super().get_urls()
     
-    def redirect2provider_view(self, request, id, provider_id):
+    def redirect2provider_view(self, request, emailclient_id, api_id):
+        print(emailclient_id, '----', api_id)
         try:
-            provider = Provider.objects.get(id=provider_id)
+            oauthapi = OAuthAPI.objects.get(id=api_id)
         except Exception as e:
             print(e)
             raise e
 
-        return HttpResponseRedirect(provider.get_authorization_url(request))
+        return HttpResponseRedirect(oauthapi.get_authorization_url(request, 
+                                                                   emailclient_id=emailclient_id))

@@ -28,7 +28,6 @@ class OAuthEmailBackend(BaseEmailBackend):
         email_server_name = getattr( test, 'email_server_name', 'default')
         email_server_database = getattr( test, 'email_server_database', getattr(settings, 'OAUTH_EMAILBACKEND_DBNAME', 'default')) 
         
-        
         result_tasks = []
         messages = [email_to_dict(msg) for msg in email_messages]
         for chunk in chunked(messages, settings.CELERY_EMAIL_CHUNK_SIZE):
@@ -37,3 +36,7 @@ class OAuthEmailBackend(BaseEmailBackend):
                                                   email_server_database=email_server_database,
                                                   backend_kwargs=self.init_kwargs))
         return result_tasks
+
+
+class OAuthCeleryEmailBackend(BaseEmailBackend):
+    pass

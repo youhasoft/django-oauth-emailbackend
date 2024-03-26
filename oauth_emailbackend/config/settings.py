@@ -149,8 +149,8 @@ OAUTH_EMAILBACKEND_CALLBACK_HOST = None
 
 # https://console.cloud.google.com에서 API 생성 - OAuth 동의화면 구성 - 사용자 인증 정보 만들기 
 # 클라이언트 아이디 & 보안 비밀번호
-# OAUTH_EMAILBACKEND_GMAIL_CLIENT_ID = '831886363443-r9717rve6kqpf2pbut5l42u8b9fso3ir.apps.googleusercontent.com'
-# OAUTH_EMAILBACKEND_GMAIL_CLIENT_SECRET = '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' 
+# OAUTH_EMAILBACKEND_GMAIL_CLIENT_ID = ''
+# OAUTH_EMAILBACKEND_GMAIL_CLIENT_SECRET = '' 
 # # 인증 후 콜백주소 
 # OAUTH_EMAILBACKEND_GMAIL_CALLBACK = 'https://dev.youhasoft.com:8443/oauth_emailbackend/oauth2callback/gmail'
 

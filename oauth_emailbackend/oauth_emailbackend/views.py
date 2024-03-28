@@ -10,9 +10,14 @@ class OAuthCallbackView(TemplateView):
     template_name = 'oauth_emailbackend/callback.html'
 
     def get(self, request, **kwargs):
-        provider = get_provider_instance(kwargs['provider'])
-        provider.complete_callback(request.GET.copy())
-        
+        provider = get_provider_instance(provider_name=kwargs['provider_name'])
 
+        # 프로바이더 레벌에서 인증과정을 완료한 다음 email_client_id, totken을 반환 / 저장 
+        email_client_id, access_token, atrribs = provider.complete_callback(request)
+        if access_token:
+            atrribs['access_token'] = access_token
+        provider.save_token(email_client_id, **atrribs)
+
+        # [TODO] url이 노출되지 않도록 일반 url로 회송처리한다.
 
         return super().get(request, **kwargs)

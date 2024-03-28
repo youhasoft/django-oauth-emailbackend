@@ -52,15 +52,18 @@ EMAIL_SECURITY_PROTOCOL = (
 
 class OAuthAPI(models.Model):
     provider = models.CharField(_('Provider'), max_length=140, unique=True, )
-    client_id = models.CharField('CLIENT_ID', max_length=255)
-    client_secret = models.CharField('CLIENT_SECRET', max_length=255)
+    # client_id = models.CharField('CLIENT_ID', max_length=255)
+    # client_secret = models.CharField('CLIENT_SECRET', max_length=255)
+    client_config = models.JSONField("클라이언트 설정(JSON)", 
+                                   null=True, 
+                                   help_text="CLIENT_ID, CLIENT_SECRET이 포함된 보안 비밀번호 json 파일")
     remarks = models.TextField(_('Remarks'), null=True, blank=True)
 
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = verbose_name_plural = _('  OAuth API')
+        verbose_name = verbose_name_plural = '   OAuth API'
         db_table = 'oauthemailbackend_oauthapi'
 
     def __str__(self):
@@ -70,32 +73,38 @@ class OAuthAPI(models.Model):
     
     def get_authorization_url(self, request: WSGIRequest, emailclient_id: int) -> str:
         # provider에 따라 인증 url을 생성한다.
-        print('OAuthAPI.get_authorization_url()')
-
-        provider_instance = get_provider_instance( self.provider )
         emailcleint = EmailClient.objects.get(id=emailclient_id)
-        authorization_url = provider_instance.get_authorization_url(request, self, emailcleint)
-
-        print("*** authorization_url = ", authorization_url)
+        authorization_url = self.provider_instance.get_authorization_url(request, emailcleint)
 
         return authorization_url
+    
+    @property
+    def provider_instance(self):
+        return get_provider_instance( self.provider )
+    
+    
 
 
 class EmailClient(models.Model):
+    """
+    사이트별 이메일 발송에 사용할 클라이언트 
+    """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     is_active = models.BooleanField(_('Active'), default=True,
                                     help_text='언체크하면 settings.py에서 설성한 기본 계정으로 발송됩니다.')
     site = models.OneToOneField(Site, on_delete=models.CASCADE,)
     database = models.CharField('데이터베이스 이름', max_length=30, 
-                                default=getattr(settings, 'OAUTH_EMAILBACKEND_DBNAME', 'default'), 
-                                help_text='이메일 발송에 사용될 데이터베이스명입니다.')
+                                default=getattr(settings, 'OAUTH_EMAILCLIENT_DBNAME', 'default'), 
+                                help_text='이메일 발송 히스토리를 저장할 때 접속할 데이터베이스 이름입니다.')
     send_method = models.CharField('발송 방법', max_length=15, default='smtp', choices=EMAIL_SEND_METHODS)
-    user = models.CharField("사용자 이메일", max_length=70, default=settings.EMAIL_HOST_USER)
+    user = models.EmailField("사용자 이메일", )
     
     # google OAuth api
     # provider  = models.CharField(_('Provider'), max_length=20, choices=PROVIDERS, null=True, blank=True)
     oauthapi  = models.ForeignKey(OAuthAPI, null=True, blank=True, verbose_name=_('OAuth API'), on_delete=models.SET_NULL)
-    api_token = models.TextField(_('API TOKEN'), null=True, blank=True)
+    access_token = models.TextField('접속 Token', null=True, blank=True)
+    refresh_token = models.TextField('갱신 Token', null=True, blank=True)
+    next_token_refresh_date = models.DateTimeField('다음 Token 갱신일', null=True, blank=True, help_text='갱신일 이전에 자동 갱신 시도합니다.')
 
     # smtp option
     smtp_host = models.CharField("SMTP 발송 호스트", max_length=50, null=True, blank=True)
@@ -112,12 +121,37 @@ class EmailClient(models.Model):
     updated = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = verbose_name_plural = _('Email Client')
+        verbose_name = verbose_name_plural = 'Email Client'
         db_table = 'oauthemailbackend_emailclient'
     
-    # def __str__(self):
-    #     return super().__str__()
-    
+    @property
+    def provider_name(self):
+        # Name of provider
+        if self.send_method != 'smtp':
+            return self.oauthapi.provider
+        else:
+            return 'smtp'
+        
+    def sendmail(self, from_email, recipients, message_as_byte):
+        if not self.is_active or self.send_method == "smtp":
+            raise Exception("Can not sendamil. is_active=%s, send_model=%s" % 
+                            (self.is_active, self.send_method))
+        kwd = {
+            'from_email': from_email,
+            'recipients': recipients,
+        }
+        provider = self.oauthapi.provider_instance
+        provider.sendmail(emailclient=self,
+                          message_as_byte=message_as_byte, 
+                          **kwd)
+
+    def quit(self):
+        pass 
+
+    def close(self):
+        pass
+
+
 
 def add_mail_history(site, category, user, recipients, subject, body, 
                      manuscript=None, 

@@ -10,21 +10,22 @@ from functools import lru_cache
 
 @lru_cache
 def get_provider_choices():
+    # 등록된 provider 목록 
     providers = []
-    for provider_name, instance in apps.get_app_config('oauth_emailbackend').providers.items():
-        providers.append((provider_name, instance.get_provider_name()))
+    for provider_name, klass in apps.get_app_config('oauth_emailbackend').providers.items():
+        providers.append((provider_name, klass.provider_name))
 
     return providers
 
 @lru_cache
-def get_provider_name(provider):
-    instance = apps.get_app_config('oauth_emailbackend').providers.get(provider, None)
-    if instance:
-        return instance.get_provider_name()
+def get_provider_name(provider_name):
+    klass = apps.get_app_config('oauth_emailbackend').providers.get(provider_name, None)
+    if klass:
+        return klass.provider_name
 
-@lru_cache
-def get_provider_instance(provider):
-    return apps.get_app_config('oauth_emailbackend').providers[provider]
+def get_provider_instance(provider_name):
+    # 지정된 프로바이더 인스턴스 
+    return apps.get_app_config('oauth_emailbackend').providers[provider_name]()
     
     
 
@@ -84,21 +85,12 @@ def email_to_dict(message):
         contents = base64.b64encode(binary_contents).decode('ascii')
         message_dict['attachments'].append((filename, contents, mimetype))
 
-    if settings.CELERY_EMAIL_MESSAGE_EXTRA_ATTRIBUTES:
-        for attr in settings.CELERY_EMAIL_MESSAGE_EXTRA_ATTRIBUTES:
-            if hasattr(message, attr):
-                message_dict[attr] = getattr(message, attr)
-
     return message_dict
 
 
 def dict_to_email(messagedict):
     messagedict = copy.deepcopy(messagedict)
     extra_attrs = {}
-    if settings.CELERY_EMAIL_MESSAGE_EXTRA_ATTRIBUTES:
-        for attr in settings.CELERY_EMAIL_MESSAGE_EXTRA_ATTRIBUTES:
-            if attr in messagedict:
-                extra_attrs[attr] = messagedict.pop(attr)
     attachments = messagedict.pop('attachments')
     messagedict['attachments'] = []
     for attachment in attachments:

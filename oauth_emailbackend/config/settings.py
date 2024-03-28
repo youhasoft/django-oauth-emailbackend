@@ -9,18 +9,26 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
-
+import os, json
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# by odop 2024.3.26 / Secret key separation
+with (BASE_DIR / 'secrets.json').open() as f:
+    secrets = json.loads(f.read())
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
+def get_secret(setting):
+    try:
+        return secrets[setting]
+    except KeyError:
+        error_msg = "Set the {} environment variable".format(setting)
+        raise ImproperlyConfigured(error_msg)
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-a#)$5ey7n$5)ad82=e*v=33la)smlg*mq6$&oibj!6riki!r(7'
+SECRET_KEY = get_secret("SECRET_KEY")
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -139,19 +147,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 #----- django-oauth-emailbackend settings -----#
-EMAIL_BACKEND = 'oauth_emailbackend.emailbackend.backends.OAuthEmailBackend' # OAuthCeleryEmailBackend
-OAUTH_EMAILBACKEND_DBNAME = 'default'
+# OAuthCeleryEmailBackend를 이용하는 경우 CELERY_BROKER_URL 값을 설정하여야 합니다.
+EMAIL_BACKEND               = 'oauth_emailbackend.backends.OAuthEmailBackend' # [OAuthEmailBackend|OAuthCeleryEmailBackend]
+OAUTH_EMAILCLIENT_DBNAME    = 'default'
 OAUTH_EMAILBACKEND_PROVIDERS = (
     'oauth_emailbackend.providers.gmail',
 )
-# 콜백 도메인을 현재 사이트 도메인과 다르게 지정하려면 설정. Host with scheme 예) https://domain.to
+# 콜백 도메인을 현재 사이트 도메인과 다르게 지정하려면 설정. 예) https://domain.to
 OAUTH_EMAILBACKEND_CALLBACK_HOST = None
+OAUTH_EMAILBACKEND_USE_CELERY = False
 
-# https://console.cloud.google.com에서 API 생성 - OAuth 동의화면 구성 - 사용자 인증 정보 만들기 
-# 클라이언트 아이디 & 보안 비밀번호
-# OAUTH_EMAILBACKEND_GMAIL_CLIENT_ID = ''
-# OAUTH_EMAILBACKEND_GMAIL_CLIENT_SECRET = '' 
-# # 인증 후 콜백주소 
-# OAUTH_EMAILBACKEND_GMAIL_CALLBACK = 'https://dev.youhasoft.com:8443/oauth_emailbackend/oauth2callback/gmail'
 
 #----- celery settings -----#
+# CELERY_BROKER_URL = 'amqp://admin:KEBC8GpjnuzRHaW@139.150.75.18:5672/devtest'

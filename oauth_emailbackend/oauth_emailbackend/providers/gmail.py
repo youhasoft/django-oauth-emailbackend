@@ -1,9 +1,22 @@
 
+from datetime import timedelta
+import datetime
+import os
 from django.http import QueryDict
 from django.utils.translation import gettext_lazy as _
 from django.core.handlers.wsgi import WSGIRequest
-from typing import Optional, TypeVar, Type
+from typing import Optional, Tuple, TypeVar, Type
 from django.db.models import Model
+
+import google_auth_oauthlib
+from oauth_emailbackend.models import EmailClient
+import base64
+import google.auth
+# from googleapiclient.discovery import build
+from googleapiclient import discovery
+from googleapiclient.errors import HttpError
+from django.utils.timezone import now, make_aware
+
 
 from ..providers import ProviderInterface
 
@@ -19,14 +32,35 @@ REQUIRED_PYPI_PACKAGES = (
 )
 OAUTH2ENDPOINT_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 
+CALLBACK_STATE_SPLITTER = '||'
+SCOPES = ['https://www.googleapis.com/auth/gmail.send',
+          "https://www.googleapis.com/auth/userinfo.email"]
+
+os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
+
+# from google.oauth2.credentials import Credentials
+
+UTC = datetime.timezone(datetime.timedelta(hours=0))
 
 class OAuthProvider(ProviderInterface):
     provider_key = 'gmail'
     provider_name = _('Gmail (Google OAuth 2.0)')
+    
+    def _get_oauth_flow(self, emailclient_id, state=None, callback_uri=None):
+        emailclient    = EmailClient.objects.get(id=emailclient_id)
+        client_config  = emailclient.oauthapi.client_config
 
+        flow = google_auth_oauthlib.flow.Flow.from_client_config(
+            client_config,
+            scopes=SCOPES,
+            state=state)
+        if callback_uri:
+            flow.redirect_uri = callback_uri
+
+        return flow
+        
     def get_authorization_url(self, 
                               request:WSGIRequest, 
-                              oauthapi: Type[T],
                               emailclient: Type[T]) -> str:
         """
         OAuth 인증 URL을 리턴한다.
@@ -34,49 +68,92 @@ class OAuthProvider(ProviderInterface):
         # 인자 확인: https://developers.google.com/identity/protocols/oauth2/web-server#python
         # https://accounts.google.com/o/oauth2/auth/oauthchooseaccount
 
-        callback_uri = self.get_callback_uri( request );
-        authorization_url = f"{OAUTH2ENDPOINT_URL}?client_id={oauthapi.client_id}" \
-                            "&scope=https://www.googleapis.com/auth/gmail.send" \
-                            "&response_type=code" \
-                            "&access_type=offline" \
-                            "&approval_prompt=force" \
-                            "&flowName=GeneralOAuthFlow" \
-                            f"&redirect_uri={callback_uri}" \
-                            f"&state=emailclientId_{emailclient.id}||siteId=test" 
+        # state값을 세션에 저장
+        state = f'emailclientId_{emailclient.id}||siteId_test'
+        request.session['state'] = state
+
+        emailclient_id = emailclient.id
+        flow = self._get_oauth_flow(emailclient_id, state, self.get_callback_uri( request ))
+        authorization_url, _state = flow.authorization_url(
+                                        access_type='offline',
+                                        include_granted_scopes='true')
         
         return authorization_url
-        
-    def complete_callback(self, data: QueryDict):
-
+    
+    def complete_callback(self, request:WSGIRequest) -> Tuple[str, str, str]:
         """
-        # provider에서 전송된 토큰을 저장한다.
+        # 인증후 전송된 값을 받아 완료하고, EmailClient.id와 토큰을 반환한다.
         # callback에서
         https://developers.google.com/identity/protocols/oauth2/web-server
 
-
-        state = flask.session['state']
-        flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-            'client_secret.json',
-            scopes=['https://www.googleapis.com/auth/drive.metadata.readonly'],
-            state=state)
-        flow.redirect_uri = flask.url_for('oauth2callback', _external=True)
-
-        authorization_response = flask.request.url
-        flow.fetch_token(authorization_response=authorization_response)
-
-        # Store the credentials in the session.
-        # ACTION ITEM for developers:
-        #     Store user's access and refresh tokens in your data store if
-        #     incorporating this code into your real app.
-        credentials = flow.credentials
-        flask.session['credentials'] = {
-            'token': credentials.token,
-            'refresh_token': credentials.refresh_token,
-            'token_uri': credentials.token_uri,
-            'client_id': credentials.client_id,
-            'client_secret': credentials.client_secret,
-            'scopes': credentials.scopes}
+        Step 5: Exchange authorization code for refresh and access tokens
+        After the web server receives the authorization code, it can exchange the authorization code for an access token.       
         """
+        state = request.session['state']
 
+        _state = {}
+        for val in state.split(CALLBACK_STATE_SPLITTER):
+            _key, _value = val.split('_', 1)
+            _state[_key] = _value 
+
+        emailclient_id = _state['emailclientId']
+        flow = self._get_oauth_flow(emailclient_id, state, self.get_callback_uri( request ))
         
-        print('***  data:', data)
+        # Flow.fetch_token(**kwargs)
+        # Args:
+        #     kwargs: Arguments passed through to
+        #         :meth:`requests_oauthlib.OAuth2Session.fetch_token`. At least
+        #         one of ``code`` or ``authorization_response`` must be specified.
+        flow.fetch_token(code=request.GET.get('code'))
+        credentials = flow.credentials
+
+        # Get profile
+        session = flow.authorized_session()
+        profile_info = session.get('https://www.googleapis.com/userinfo/v2/me').json()
+
+        attribs = { 'user': profile_info['email']}
+        if credentials.refresh_token:
+            attribs['refresh_token'] = credentials.refresh_token
+        if credentials.expiry:
+            expiry = make_aware( credentials.expiry, timezone = UTC )
+            attribs['next_token_refresh_date'] =  expiry # now() + timedelta(seconds = credentials.expiry )
+
+        return (emailclient_id, credentials.token, attribs)
+
+    def refresh_access_token(self, emailclient: Type[T]) -> bool:
+        # https://stackoverflow.com/questions/27771324/google-api-getting-credentials-from-refresh-token-with-oauth2client-client
+        return True
+    
+    def sendmail(self, emailclient, message_as_byte, **kwargs):
+        """
+        Open connection open and return connection
+        Called from EmailBackend.connection
+        """
+        try:
+            client_config = emailclient.oauthapi.client_config['web']
+            acct_creds = {
+                'token': emailclient.access_token,
+                'refresh_token': emailclient.refresh_token,
+                'client_id': client_config['client_id'],
+                'client_secret': client_config['client_secret'],
+                'token_uri': client_config['token_uri'],
+                'scopes': SCOPES,
+                }
+            credentials = google.oauth2.credentials.Credentials(**acct_creds)
+            service = discovery.build("gmail", "v1", credentials=credentials)
+
+            # encoded message
+            encoded_message = base64.urlsafe_b64encode(message_as_byte).decode()
+            create_message = {"raw": encoded_message}
+            send_message = (
+                service.users()
+                .messages()
+                .send(userId="me", body=create_message)
+                .execute()
+            )
+            print(f'Message Id: {send_message["id"]}')
+        except HttpError as error:
+            print(f"An error occurred: {error}")
+            send_message = None
+        
+        return send_message

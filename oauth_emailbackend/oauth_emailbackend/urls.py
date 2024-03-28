@@ -4,5 +4,5 @@ from oauth_emailbackend.views import OAuthCallbackView
 
 app_name = 'oauth_emailbackend'
 urlpatterns = [
-    path('oauth2callback/<str:provider>', OAuthCallbackView.as_view(), name='oauth2callback',),
+    path('oauth2callback/<str:provider_name>', OAuthCallbackView.as_view(), name='oauth2callback',),
 ]

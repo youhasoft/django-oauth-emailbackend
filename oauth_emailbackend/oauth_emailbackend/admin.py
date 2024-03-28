@@ -39,7 +39,7 @@ from .models import EmailClient, OAuthAPI, SendHistory, EmailClient
 
 @admin.register(OAuthAPI)
 class OAuthAPIAdmin(admin.ModelAdmin):
-    list_display = ('provider_display', 'client_id', 'created', )
+    list_display = ('provider_display', 'created', )
     search_fields = ('provider',  ) 
     form = OAuthAPIAdminForm
 
@@ -102,7 +102,7 @@ class EmailClientAdmin(admin.ModelAdmin):
             (mark_safe('''OAuth API  
                        '''), 
                        {
-                'fields': ( 'oauthapi', 'api_token', ),
+                'fields': ( 'oauthapi', 'access_token', 'refresh_token', 'next_token_refresh_date'),
                 'classes': ('oauthapi-option',)
             }),
             ("SMTP", {
@@ -124,7 +124,6 @@ class EmailClientAdmin(admin.ModelAdmin):
         ] + super().get_urls()
     
     def redirect2provider_view(self, request, emailclient_id, api_id):
-        print(emailclient_id, '----', api_id)
         try:
             oauthapi = OAuthAPI.objects.get(id=api_id)
         except Exception as e:

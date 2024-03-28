@@ -8,10 +8,21 @@ description = "Django emailbackend with Celery that using IMAP and google OAuth 
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
+    # Specify the Python versions you support here.
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+  'google-api-python-client',
+  'google-api-python-client',
+  'google-authors',
+  'google-auth-oauthlib',
+  'google-auth-httplib2',
+]
+
 
 [project.urls]
 Homepage = "https://github.com/youhasoft/django-oauth-emailbackend"

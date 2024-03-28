@@ -45,8 +45,7 @@
             let oauthapi = django.jQuery('#id_oauthapi option:selected');
             if (oauthapi && oauthapi.val()) {
                 let url = '../redirect2provider/' + oauthapi.val()
-                alert(url);
-                window.open(url, '_blank', 'width=1000,height=800');
+                var win = window.open(url, '_blank', 'width=1000,height=800');
             } else {
                 alert('Invalid OAuth API');
             }
@@ -79,7 +78,7 @@
             if (original_pk) {
                 // Add OAuth popup button 
                 django.jQuery('#id_oauthapi').closest('.related-widget-wrapper')
-                    .append('<a href="javascript:loginOAuth();void(0);" class="login-oauth"><span id="oauth_name"></span> Login</a>');
+                    .append('<a href="javascript:loginOAuth();void(0);" class="login-oauth">Get <span id="oauth_name"></span> Token</a>');
 
                 django.jQuery('#id_oauthapi').on('change', onProviderChanged );
                 django.jQuery('#id_oauthapi').trigger('change');

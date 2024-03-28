@@ -1,2 +1,20 @@
-callback.html
+<html>
+    <head>
+        <script type='text/javascript'>
+            window.onunload = function() {
+                closeWindow(false);
+            }
 
+            function closeWindow(doClose) {
+                window.opener.location.reload();   
+                if (doClose) window.close();
+            }
+        </script>
+    </head>
+
+    <body>
+
+            callback .. <a href="javascript:closeWindow(true);void(0);">닫기 </a>
+    </body>
+
+</html>

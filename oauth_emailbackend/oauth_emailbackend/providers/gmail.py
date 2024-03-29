@@ -16,11 +16,15 @@ import google.auth
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 from django.utils.timezone import now, make_aware
-
-
+import logging
 from ..providers import ProviderInterface
+# from google.oauth2.credentials import Credentials
 
-T = TypeVar('T', bound=Model)
+# # api 로그 수준 조정 
+# logging.getLogger('googleapicliet.discovery_cache').setLevel(logging.ERROR)
+
+# [TODO]
+# file_cache is only supported with oauth2client<4.0.0 로그 출력되지 않게 하기 
 
 
 # 프로바이더 인증에 사용되는 추가 패키지 목록 
@@ -38,7 +42,7 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.send',
 
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
-# from google.oauth2.credentials import Credentials
+T = TypeVar('T', bound=Model)
 
 UTC = datetime.timezone(datetime.timedelta(hours=0))
 
@@ -111,23 +115,23 @@ class OAuthProvider(ProviderInterface):
         session = flow.authorized_session()
         profile_info = session.get('https://www.googleapis.com/userinfo/v2/me').json()
 
-        attribs = { 'user': profile_info['email']}
+        attribs = { 'api_email': profile_info['email']}
         if credentials.refresh_token:
             attribs['refresh_token'] = credentials.refresh_token
         if credentials.expiry:
             expiry = make_aware( credentials.expiry, timezone = UTC )
-            attribs['next_token_refresh_date'] =  expiry # now() + timedelta(seconds = credentials.expiry )
+            attribs['token_expiry'] =  expiry # now() + timedelta(seconds = credentials.expiry )
 
         return (emailclient_id, credentials.token, attribs)
 
     def refresh_access_token(self, emailclient: Type[T]) -> bool:
+        # [TODO]
         # https://stackoverflow.com/questions/27771324/google-api-getting-credentials-from-refresh-token-with-oauth2client-client
         return True
     
     def sendmail(self, emailclient, message_as_byte, **kwargs):
         """
-        Open connection open and return connection
-        Called from EmailBackend.connection
+        각 이메일 backend의 connection에서 구현되는 메시지로 최종적으로 이메일이 발송되는 메쏘드임 
         """
         try:
             client_config = emailclient.oauthapi.client_config['web']

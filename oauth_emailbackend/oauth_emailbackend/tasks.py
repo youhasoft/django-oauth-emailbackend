@@ -1,23 +1,17 @@
 from django.conf import settings
+from six import string_types
 from django.core.mail import EmailMessage, get_connection
-# from django.utils.six import string_types
-
-from django.contrib.sites.models import Site
-
-# Make sure our AppConf is loaded properly.
-# import library.asyncmailer.conf  # noqa
 from .utils import dict_to_email, email_to_dict 
-from .models import EmailServerOption
+from .models import EmailClient
 
 try:
     from celery import shared_task
 
-    TASK_CONFIG = {'name':  'oauth_emailbackend_using_celery', 
-                'ignore_result': True,
-                'rate_limit':    '30/m', # 분당 발송 건수 --2초 delay... 차후 다시 확인할 것 worker 단위 적용. 프로세스(concurrenty) 갯수와는 상관없음 
-                }
-    # TASK_CONFIG = {'name': 'asyncmailer', 'ignore_result': True}
-    TASK_CONFIG.update(settings.CELERY_EMAIL_TASK_CONFIG)
+    TASK_CONFIG = getattr(settings, "CELERY_EMAIL_TASK_CONFIG", {})
+    TASK_CONFIG.update({'name':  'oauth_emailbackend_using_celery', 
+                        'ignore_result': True,
+                        'rate_limit':    '30/m', # 분당 발송 건수 --2초 delay... 차후 다시 확인할 것 worker 단위 적용. 프로세스(concurrenty) 갯수와는 상관없음 
+                        })
 
     # import base if string to allow a base celery task
     if 'base' in TASK_CONFIG and isinstance(TASK_CONFIG['base'], string_types):
@@ -25,117 +19,90 @@ try:
         TASK_CONFIG['base'] = import_string(TASK_CONFIG['base'])
 
     @shared_task(**TASK_CONFIG) 
-    def send_emails(messages, site_id, 
-                    email_server_database='default',
-                    backend_kwargs=None, **kwargs):
-        # backward compat: handle **kwargs and missing backend_kwargs
+    def celery_send_emails(messages, 
+                           emailclient_id,
+                           using='default',
+                           backend_kwargs=None, 
+                           retry_count=0,
+                           **kwargs):
         """
-        # by odop 2019.8.24
-        # 복수의 이메일서버 중에 선택하여 발송할 수 있도록 변경 
+        @using : 공용 celery 서버로 이용하여 각 사이트에서 이메일을 발송할 때 celery 서버에서 접속할 database를 달리할 수 있다.
         """
-        
-        combined_kwargs = {}
-        from_email = reply_to = settings.DEFAULT_FROM_EMAIL
-        
-        if isinstance(email_server_name, (list, tuple)):
-            email_server_name = email_server_name[0]
-        
-        if isinstance(email_server_database, (list, tuple)):
-            email_server_database = email_server_database[0]
-        
-        site = Site.objects.using(email_server_database).filter(id=site_id,).last()
-        email_server = EmailServerOption.objects.using(email_server_database).filter(site=site, 
-                                                                            name=email_server_name,).last()
-        
-        # print(site, email_server)
-        
-        es = email_server
-        if email_server and email_server.is_active:
-            combined_kwargs['host'] = es.host
-            combined_kwargs['port'] = es.port
-            combined_kwargs['username'] = es.user 
-            combined_kwargs['password'] = es.password
-            combined_kwargs['use_tls'] = es.use_tls
-            combined_kwargs['use_ssl'] = es.use_ssl
-            
-            from_email = es.from_email or from_email 
-            reply_to = es.reply_to or reply_to 
-            # by odop 2020.3.9
-            # cc, bcc 직접 사용 
-            #use_bcc = es.use_bcc
+        if emailclient_id:
+            emailclient = EmailClient.objects.using(using).get(id=emailclient_id)
         else:
-            combined_kwargs['host'] = settings.EMAIL_HOST
-            combined_kwargs['port'] = settings.EMAIL_PORT
-            combined_kwargs['username'] = settings.EMAIL_HOST_USER
-            combined_kwargs['password'] = settings.EMAIL_HOST_PASSWORD
-            combined_kwargs['use_tls'] = settings.EMAIL_USE_TLS
-            
-        if not isinstance(reply_to, (list, tuple)):
-            reply_to = [reply_to]
-            
-        
-        if backend_kwargs is not None:
-            combined_kwargs.update(backend_kwargs)
-        combined_kwargs.update(kwargs)
-        
-        # backward compat: catch single object or dict
+            emailclient = EmailClient()
+
         if isinstance(messages, (EmailMessage, dict)):
             messages = [messages]
 
-        # make sure they're all dicts
         messages = [email_to_dict(m) for m in messages]
-        #print(type(messages[0]))
         
-        # by odop 2018.9.21
-        # 보내일 메일과 리던 메일을 DB값으로 셋팅 
-        for idx in range(0, len(messages)):
-            messages[idx]['from_email'] = from_email
-            messages[idx]['reply_to'] = reply_to
+        
+        combined_kwargs = {
+            "emailclient_id": emailclient_id,
+        }
+        combined_kwargs.update(backend_kwargs)
+
+
+        retry_kwargs = {
+                    'history_pk': 1,
+                    'backend_kwargs': backend_kwargs,
+                    'retry_count': retry_count + 1
+                    }
+        retry_kwargs.update(kwargs)   
             
-            # by odop 2020.3.9
-            # settings.BCC_EMAILS 이 Celery에서 유효하지 않음으로 EmailServer에 직접 셋팅 
-            if hasattr(es, 'cc') and es.cc:
-                messages[idx]['cc'] = es.cc.split(",")
-            if hasattr(es, 'bcc') and es.bcc:
-                messages[idx]['bcc'] = es.bcc.split(",")
-                
-            print("*MessageID: ", messages[idx])
-            
-            
-        conn = get_connection(backend=settings.CELERY_EMAIL_BACKEND, **combined_kwargs)
+        # conn는 EMAIL_BACKEND 인스턴스 임 
+        # EMAIL_BACKEND의 connection이 아님 
+        conn = get_connection(backend=settings.EMAIL_BACKEND, **combined_kwargs)
         try:
-            conn.open()
+            conn.open(emailclient)
         except Exception:
-            logger.exception("Cannot reach CELERY_EMAIL_BACKEND %s", settings.CELERY_EMAIL_BACKEND)
+            if emailclient.debug:
+                logger.exception("Cannot reach EMAIL_BACKEND %s", settings.EMAIL_BACKEND)
 
-        messages_sent = 0
-
+        num_sent = 0
         for message in messages:
             try:
-                sent = conn.send_messages([dict_to_email(message)])
+                # 다시 EmailMessage로 변환 
+                msg  = dict_to_email(message)
+                # Celery를 실행하지 않도록 한다.
+                print('* tasks.send_messages emailclient_id = %s' % emailclient_id)
+                sent = conn.send_messages([msg], enable_celery=False)
                 if sent is not None:
-                    messages_sent += sent
-                logger.debug("Successfully sent email message to %r.", message['to'])
+                    num_sent += sent
+                if emailclient.debug:
+                    logger.debug("Successfully sent email message to %r.", message['to'])
             except Exception as e:
-                # Not expecting any specific kind of exception here because it
-                # could be any number of things, depending on the backend
-                logger.warning("Failed to send email message to %r, retrying. (%r)",
-                            message['to'], e)
-                send_emails.retry([[message], combined_kwargs], exc=e, throw=False)
+                if emailclient.debug:
+                    logger.warning("Failed to send email message to %r, retrying. (%r)", message['to'], e)
+                
+                print(">>>>>Try retry")
+                ret = celery_send_emails.retry(args=(message, str(emailclient.id), using), 
+                                        kwargs=retry_kwargs,
+                                        exc=e, 
+                                        throw=False,
+                                        countdown=1*60, # after 3 seconds
+                                        max_retries=10,)
+                print("<<<<< Retry: %r" % ret)
+
+
+                # # 재시도 횟수가 max_retiries에 도달하여 관리자에게 문자 발송 
+                # if retry_kwargs['retry_count'] == 9:
+                #     print(">>>ITSM INCIDENT MESSAGE SENDING..., %r" % settings.ITSM_INCIDENT_RECEIVERS)
+                    
+                #     subject = '%r투고시스템 이메일 발송 재시도 횟수가 10회에 도달하였습니다. \n\n%r' % (site, ret)
+                #     resp = send_itsm_incident_message(subject, None, send_type='LM')
+                #     print(">>>ITSM INCIDENT MESSAGE SENT, %r" % resp)
 
         conn.close()
-        return messages_sent
-
-
-    # backwards compatibility
-    SendEmailTask = send_email =  send_emails
-
+        return num_sent
 
     try:
         from celery.utils.log import get_task_logger
         logger = get_task_logger(__name__)
     except ImportError:
-        logger = send_emails.get_logger()
+        logger = celery_send_emails.get_logger()
 
 except ImportError:
     pass

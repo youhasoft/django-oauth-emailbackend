@@ -13,7 +13,6 @@ class PrettyJSONEncoder(json.JSONEncoder):
     def __init__(self, *args, indent, sort_keys, **kwargs):
         super().__init__(*args, indent=2, sort_keys=True, **kwargs)
 
-
 class EmailClientAdminForm(ModelForm):
     class Meta:
         model = EmailClient
@@ -30,6 +29,10 @@ class EmailClientAdminForm(ModelForm):
         self.fields['access_token' ].widget.attrs['rows'] = 3
         self.fields['refresh_token'].disabled = True
         self.fields['refresh_token'].widget.attrs['rows'] = 3
+
+
+
+
 
 class OAuthAPIAdminForm(ModelForm):
     client_config = forms.JSONField(encoder=PrettyJSONEncoder)

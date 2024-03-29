@@ -1,9 +1,10 @@
 import uuid
 from django.core.handlers.wsgi import WSGIRequest
+from django.db.models.signals import post_save, pre_save
 from django.utils.translation import gettext_lazy as _
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.contrib.sites.models import Site
+from django.contrib.sites.models import Site, clear_site_cache
 from builtins import isinstance
 from django.utils.timezone import now
 from django.conf import settings
@@ -52,8 +53,6 @@ EMAIL_SECURITY_PROTOCOL = (
 
 class OAuthAPI(models.Model):
     provider = models.CharField(_('Provider'), max_length=140, unique=True, )
-    # client_id = models.CharField('CLIENT_ID', max_length=255)
-    # client_secret = models.CharField('CLIENT_SECRET', max_length=255)
     client_config = models.JSONField("클라이언트 설정(JSON)", 
                                    null=True, 
                                    help_text="CLIENT_ID, CLIENT_SECRET이 포함된 보안 비밀번호 json 파일")
@@ -93,20 +92,23 @@ class EmailClient(models.Model):
     is_active = models.BooleanField(_('Active'), default=True,
                                     help_text='언체크하면 settings.py에서 설성한 기본 계정으로 발송됩니다.')
     site = models.OneToOneField(Site, on_delete=models.CASCADE,)
-    database = models.CharField('데이터베이스 이름', max_length=30, 
+    using = models.CharField('데이터베이스 이름', max_length=30, 
                                 default=getattr(settings, 'OAUTH_EMAILCLIENT_DBNAME', 'default'), 
                                 help_text='이메일 발송 히스토리를 저장할 때 접속할 데이터베이스 이름입니다.')
     send_method = models.CharField('발송 방법', max_length=15, default='smtp', choices=EMAIL_SEND_METHODS)
-    user = models.EmailField("사용자 이메일", )
-    
+    sender_name = models.CharField('보내는 사람 이름',  max_length=20, null=True, )
+    debug = models.BooleanField('디버그', default=True, help_text='로그를 작성합니다.')
+
+
     # google OAuth api
-    # provider  = models.CharField(_('Provider'), max_length=20, choices=PROVIDERS, null=True, blank=True)
+    api_email = models.EmailField("API 계정 이메일", null=True, blank=True)
     oauthapi  = models.ForeignKey(OAuthAPI, null=True, blank=True, verbose_name=_('OAuth API'), on_delete=models.SET_NULL)
     access_token = models.TextField('접속 Token', null=True, blank=True)
     refresh_token = models.TextField('갱신 Token', null=True, blank=True)
-    next_token_refresh_date = models.DateTimeField('다음 Token 갱신일', null=True, blank=True, help_text='갱신일 이전에 자동 갱신 시도합니다.')
+    token_expiry = models.DateTimeField('다음 Token 갱신일', null=True, blank=True, help_text='갱신일 이전에 자동 갱신 시도합니다.')
 
     # smtp option
+    smtp_email = models.EmailField("SMTP 계정 이메일", null=True, blank=True)
     smtp_host = models.CharField("SMTP 발송 호스트", max_length=50, null=True, blank=True)
     security_protocol = models.CharField('보안 프로토콜', max_length=15, null=True, blank=True, choices=EMAIL_SECURITY_PROTOCOL)
     port = models.PositiveSmallIntegerField(null=True, blank=True, help_text=settings.EMAIL_PORT)
@@ -145,11 +147,22 @@ class EmailClient(models.Model):
                           message_as_byte=message_as_byte, 
                           **kwd)
 
+    def send_messages(self, ):
+        pass
+
     def quit(self):
         pass 
 
     def close(self):
         pass
+
+def __clear_site_cache(sender, **kwargs):
+    instance = kwargs['instance']
+    # Trigger django.contrib.sites.models.clear_site_cache signal
+    instance.site.save()
+pre_save.connect(__clear_site_cache, sender=EmailClient)
+
+
 
 
 

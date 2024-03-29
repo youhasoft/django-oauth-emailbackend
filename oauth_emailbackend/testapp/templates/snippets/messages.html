@@ -1,0 +1,38 @@
+
+{% if messages %}
+	<div class="message-wrap">
+		{% for message in messages %}
+			<div class="ui {{message.tags}} {{extraclass}} message">
+			  <i class="close icon"></i>
+			  {{ message }}
+			</div>
+		{% endfor %}
+	</div>
+	<script>
+	$(document).ready(function() {
+		if ($('.field.error, .form-errors, .formset-errors').length) {
+			$([document.documentElement, document.body]).animate({
+		        scrollTop: $('.field.error, .form-errors, .formset-errors').first().offset().top - 100
+		    }, 1500);
+		    $('.field.error, .form-errors, .formset-errors').on("transitionend webkitTransitionEnd oTransitionEnd", function(){
+		    	if ($(this).hasClass('error-highlight')){ $(this).removeClass('error-highlight') }
+		    }).addClass( "error-highlight" );
+		} 
+		$('.message-wrap .message .close')
+		  .on('click', function() {
+		    $(this)
+		      .closest('.message')
+		      .transition('fade')
+		    ;
+		  })
+		;
+		
+		window.setTimeout(function(){
+			if ($('.message-wrap .message .close').is(':visible')) {
+				$('.message-wrap .message:not(.warning) .close').click();
+			}
+		}, 15000);
+	});
+	</script>
+	<br />
+{% endif %}

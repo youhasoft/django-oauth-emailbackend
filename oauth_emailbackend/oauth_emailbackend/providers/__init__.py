@@ -72,7 +72,7 @@ class ProviderInterface(metaclass=ABCMeta):
         email_client = EmailClient.objects.get(id=email_client_id)
         for k in atrribs:
             setattr(email_client, k, atrribs[k])
-
+        email_client.send_method = 'api'
         email_client.save(update_fields=atrribs.keys())
 
     @abstractmethod

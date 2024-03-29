@@ -52,6 +52,8 @@ INSTALLED_APPS = [
     # 'oauth_emailbackend.emailbackend',
     'oauth_emailbackend',
 
+    'testapp',
+
     # Used for callback test.
     # python manage.py runsslserver 0.0.0.0:8443  
     "sslserver",
@@ -61,6 +63,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.contrib.sites.middleware.CurrentSiteMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -146,17 +149,35 @@ STATIC_ROOT = BASE_DIR / 'static'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+
 #----- django-oauth-emailbackend settings -----#
 # OAuthCeleryEmailBackend를 이용하는 경우 CELERY_BROKER_URL 값을 설정하여야 합니다.
-EMAIL_BACKEND               = 'oauth_emailbackend.backends.OAuthEmailBackend' # [OAuthEmailBackend|OAuthCeleryEmailBackend]
+EMAIL_BACKEND               = 'oauth_emailbackend.backends.OAuthEmailBackend'
 OAUTH_EMAILCLIENT_DBNAME    = 'default'
 OAUTH_EMAILBACKEND_PROVIDERS = (
     'oauth_emailbackend.providers.gmail',
 )
 # 콜백 도메인을 현재 사이트 도메인과 다르게 지정하려면 설정. 예) https://domain.to
 OAUTH_EMAILBACKEND_CALLBACK_HOST = None
-OAUTH_EMAILBACKEND_USE_CELERY = False
+OAUTH_EMAILBACKEND_USE_CELERY = True
+
+
+
+# # Django Default Email Send 
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_HOST_USER = 'youhasoft@gmail.com' 
+# EMAIL_HOST_PASSWORD = "prdnubdqxxxmfjpa"
+# EMAIL_PORT = 465 #587
+# EMAIL_USE_SSL = True
+# DEFAULT_FROM_EMAIL = 'Test Send <youhasoft@gmail.com>'
+
 
 
 #----- celery settings -----#
-# CELERY_BROKER_URL = 'amqp://admin:KEBC8GpjnuzRHaW@139.150.75.18:5672/devtest'
+"""
+# -- Run celery in local --
+# #sudo rabbitmq-server start
+# celery -A config worker -l info -E
+"""
+CELERY_BROKER_URL = 'amqp://admin:KEBC8GpjnuzRHaW@www.apubl.net:5672/devtest'

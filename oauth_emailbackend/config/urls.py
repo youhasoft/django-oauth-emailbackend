@@ -19,12 +19,15 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls.conf import include
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-
+    
     # Add OAuth Emailbackend urls
+    path('', RedirectView.as_view(url='/test/send-email/')),
     path('oauth_emailbackend/', include('oauth_emailbackend.urls')),
+    path('test/', include('testapp.urls')),
 ]
 
 

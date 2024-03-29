@@ -1,0 +1,115 @@
+{% extends "testapp/base.html" %}
+
+{% block header %}{{ block.super }}
+    <style>
+        form label {
+            font-weight: bold;
+            margin-top: 1em;
+            padding-bottom: .53em;
+            display: inline-block;
+        }
+        td.send-method {
+            color: blue;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h1 class="ui dividing header">Test Email Send
+        <div class="sub header">이메일 API 설정에 따라 테스트 이메일을 발송합니다.</div>
+    </h1>
+
+    
+    
+    {% include "snippets/messages.html" %}
+
+	<form id="updateform" method="post" enctype="multipart/form-data" action="./" class="ui form">{% csrf_token %}
+		<div class="ui grid">
+            
+			<div class="eight wide column">
+                {{ form.as_table }}
+
+
+                <div><br>
+                    <button class="ui green right floated button" type="submit" >
+                        이메일 발송하기
+                    </button>
+                </div>
+            </div>
+			<div class="one wide column"></div>
+			<div class="seven wide column">
+                <h4 class="ui  header">API 설정 내용
+                    <div class="sub header">OAuth/API 설정 내역입니다.</div>
+                </h4> 
+            
+                {% with emailclient=request.site.emailclient %}
+                    {% if emailclient %}
+                        <table class="ui definition table">
+                            <tr>
+                                <td>Send Method</td>
+                                <td class="send-method">{{emailclient.get_send_method_display}}</td>
+                            </tr>
+                            <tr>
+                                <td>Sender Name</td>
+                                <td>{{emailclient.sender_name}}</td>
+                            </tr>
+
+                            
+                            {% if emailclient.send_method == 'smtp' %}
+                                <tr>
+                                    <td>User Email</td>
+                                    <td>{{emailclient.smtp_email}}</td>
+                                </tr>
+                                <tr>
+                                    <td>SMTP Host</td>
+                                    <td>{{emailclient.smtp_host}}</td>
+                                </tr>
+                                <tr>
+                                    <td>Send Method</td>
+                                    <td>{{emailclient.get_security_protocol_display}}</td>
+                                </tr>
+                                <tr>
+                                    <td>Port</td>
+                                    <td>{{emailclient.port}}</td>
+                                </tr>
+                                <tr>
+                                    <td>Password</td>
+                                    <td>{{emailclient.password}}</td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <td>API Account Email</td>
+                                    <td>{{emailclient.api_email}}</td>
+                                </tr>
+                                <tr>
+                                    <td>OAuth AP</td>
+                                    <td>{{emailclient.oauthapi}}</td>
+                                </tr>
+                                <tr>
+                                    <td>Access Token</td>
+                                    <td>{{emailclient.access_token|truncatechars:20}}</td>
+                                </tr>
+                                <tr>
+                                    <td>Refresh Token</td>
+                                    <td>{{emailclient.refresh_token|truncatechars:20}}</td>
+                                </tr>
+                                <tr>
+                                    <td>Token Expiry In</td>
+                                    <td>{{emailclient.token_expiry}}</td>
+                                </tr>
+                            {% endif %}
+                        </table>
+                    {% else %}
+                        <div class="ui message">
+                            API 클라이언트가 설정되지 않았습니다.
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+            </div>
+
+        </div>
+
+    </form>
+
+{% endblock %}

@@ -97,20 +97,20 @@ class EmailClientAdmin(admin.ModelAdmin):
     """
     fieldsets = (
             (None, {
-                'fields': ( 'is_active', 'site', 'database', 'send_method', 'user',  ),
+                'fields': ( 'is_active', 'site', 'using', 'send_method', 'sender_name'),
             }),
             (mark_safe('''OAuth API  
                        '''), 
                        {
-                'fields': ( 'oauthapi', 'access_token', 'refresh_token', 'next_token_refresh_date'),
+                'fields': ( 'api_email', 'oauthapi', 'access_token', 'refresh_token', 'token_expiry'),
                 'classes': ('oauthapi-option',)
             }),
             ("SMTP", {
-                'fields': ( 'smtp_host', 'security_protocol', 'port', 'password', ),
+                'fields': ( 'smtp_email', 'smtp_host', 'security_protocol', 'port', 'password', ),
                 'classes': ('smtp-option',)
             }),
-            ("Email Addresses", {
-                'fields': ('reply_to', 'cc', 'bcc' ),
+            ("Email Addresses and Log", {
+                'fields': ('reply_to', 'cc', 'bcc', 'debug'),
             }),
     )
 

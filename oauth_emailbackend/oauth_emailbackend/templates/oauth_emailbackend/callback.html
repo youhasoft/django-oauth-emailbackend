@@ -1,20 +1,31 @@
 <html>
     <head>
         <script type='text/javascript'>
-            window.onunload = function() {
-                closeWindow(false);
-            }
+            //window.onunload = function() {
+            //    closeWindow(false);
+            //}
 
-            function closeWindow(doClose) {
-                window.opener.location.reload();   
-                if (doClose) window.close();
+            function closeWindow() {
+                //window.opener.location.reload();   
+                window.close();
             }
         </script>
+        <style>
+            body {
+                padding: 3em;
+                text-align: center;
+            }
+            .button {
+                padding: .2em 1em;
+                background-color: silver;
+            }
+        </style>
     </head>
 
     <body>
-
-            callback .. <a href="javascript:closeWindow(true);void(0);">닫기 </a>
+            인증을 완료하였습니다.<br>
+            창을 닫은 후 페이지를 새로고침하십시오. <br><br> <br><br> <br><br>
+            <a href="javascript:closeWindow();void(0);" class="button">닫기</a>
     </body>
 
 </html>

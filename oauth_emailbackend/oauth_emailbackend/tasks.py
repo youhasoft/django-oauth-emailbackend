@@ -1,11 +1,13 @@
 from django.conf import settings
 from six import string_types
 from django.core.mail import EmailMessage, get_connection
-from .utils import dict_to_email, email_to_dict 
+from .utils import add_send_history, dict_to_email, email_to_dict, mark_send_history 
 from .models import EmailClient
 
 try:
     from celery import shared_task
+
+    CELERY_MAX_RETRY= getattr(settings, "OAUTH_EMAILBACKEND_CELERY_MAX_RETRY", 3)
 
     TASK_CONFIG = getattr(settings, "CELERY_EMAIL_TASK_CONFIG", {})
     TASK_CONFIG.update({'name':  'oauth_emailbackend_using_celery', 
@@ -46,7 +48,6 @@ try:
 
 
         retry_kwargs = {
-                    'history_pk': 1,
                     'backend_kwargs': backend_kwargs,
                     'retry_count': retry_count + 1
                     }
@@ -63,37 +64,45 @@ try:
 
         num_sent = 0
         for message in messages:
+            message_id  = message['headers']['Message-ID']
+            msg         = dict_to_email(message)
+
+            print('message_id:', message_id)
+
+            if retry_count == 0 and emailclient.site:
+                add_send_history(message_id, emailclient.site, msg, using=emailclient.using)
+
             try:
                 # 다시 EmailMessage로 변환 
-                msg  = dict_to_email(message)
-                # Celery를 실행하지 않도록 한다.
-                print('* tasks.send_messages emailclient_id = %s' % emailclient_id)
                 sent = conn.send_messages([msg], enable_celery=False)
-                if sent is not None:
+                print('*** sent:', sent)
+                if sent:
                     num_sent += sent
+                if emailclient.site:
+                    mark_send_history(message_id, bool(sent))
+                
                 if emailclient.debug:
                     logger.debug("Successfully sent email message to %r.", message['to'])
             except Exception as e:
                 if emailclient.debug:
                     logger.warning("Failed to send email message to %r, retrying. (%r)", message['to'], e)
                 
-                print(">>>>>Try retry")
+                    if retry_count > CELERY_MAX_RETRY:
+                        logger.warning("Sending emails to %r was stopped because the maximum number of attempts was %d.", message['to'], CELERY_MAX_RETRY)
+                if emailclient.site:
+                    mark_send_history(message_id, False, str(e), retry_count)
+
+                if retry_count > CELERY_MAX_RETRY:
+                    # [TODO] send history에 최종 발송 오류 표시 
+                    continue 
+
                 ret = celery_send_emails.retry(args=(message, str(emailclient.id), using), 
                                         kwargs=retry_kwargs,
                                         exc=e, 
                                         throw=False,
-                                        countdown=1*60, # after 3 seconds
-                                        max_retries=10,)
-                print("<<<<< Retry: %r" % ret)
-
-
-                # # 재시도 횟수가 max_retiries에 도달하여 관리자에게 문자 발송 
-                # if retry_kwargs['retry_count'] == 9:
-                #     print(">>>ITSM INCIDENT MESSAGE SENDING..., %r" % settings.ITSM_INCIDENT_RECEIVERS)
-                    
-                #     subject = '%r투고시스템 이메일 발송 재시도 횟수가 10회에 도달하였습니다. \n\n%r' % (site, ret)
-                #     resp = send_itsm_incident_message(subject, None, send_type='LM')
-                #     print(">>>ITSM INCIDENT MESSAGE SENT, %r" % resp)
+                                        countdown=1*10, # after 60 seconds
+                                        max_retries=CELERY_MAX_RETRY,)
+                print(">>> Retry: %r" % ret)
 
         conn.close()
         return num_sent

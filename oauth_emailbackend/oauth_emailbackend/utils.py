@@ -1,12 +1,23 @@
 import copy
 import base64
+from email.message import Message
 from email.mime.base import MIMEBase
+import subprocess
+from typing import Any, Optional
+import typing
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, EmailMessage
 from django.conf import settings
 from django.apps import apps
 from functools import lru_cache
+from django.utils.timezone import now
+from django.core.mail import EmailMessage
+from django.contrib.sites.models import Site
+
+
+OS_MTA = getattr( settings, "OAUTH_EMAILBACKEND_MTA", None)
+ADMINS = getattr( settings, "ADMINS", [])
 
 @lru_cache
 def get_provider_choices():
@@ -27,9 +38,79 @@ def get_provider_instance(provider_name):
     # 지정된 프로바이더 인스턴스 
     return apps.get_app_config('oauth_emailbackend').providers[provider_name]()
     
+def get_use_celery():
+    return apps.get_app_config('oauth_emailbackend').use_celery
+
+def _strip_message_id(message_id):
+    return message_id.strip()[1:-1]
+
+def mark_send_history(message_id, success: bool, error_message: typing.Optional[str]=None, retry_count: typing.Optional[int]=0) -> None:
+    """발송이력을 마크한다."""
+    from .models import SendHistory 
+
+    try:
+        obj = SendHistory.objects.get(message_id=_strip_message_id(message_id))
+        obj.sent_time   = now()
+        obj.success     = success 
+        obj.retry_count = retry_count
+        obj.error_message = error_message if not success else None 
+        
+        obj.save()
+        
+    except Exception as e:
+        print(e)
+        # Send error message using user's os system email
+        # send_system_email(subject, body)
+
+def add_send_history(message_id, site: Site, message: Optional[EmailMessage | Message], using='default', success=None, **kwargs) -> None: 
+    """ 발송히스토리를 생성한다. """
+    from .models import SendHistory 
+    try:
+        message_id = _strip_message_id(message_id)
+
+        obj, created = SendHistory.objects.using(using).get_or_create(
+                    message_id=message_id,
+                    site=site,
+                )
+        if success is not None:
+            obj.success = success 
+            obj.sent_time = now()
+
+        if created:
+            if isinstance(message, (EmailMessage,)):
+                subject = message.subject or kwargs.get('subject')
+                recipients = message.recipients() or kwargs.get('recipients')
+                body = message.body or kwargs.get('body')
+            else:
+                subject = kwargs.get('subject')
+                recipients = kwargs.get('recipients')
+                body = str(message)
+
+
+            if isinstance(subject, (list, tuple)):
+                subject = subject[0]
+            
+            if isinstance(recipients, (list, tuple)):
+                recipients = recipients[0]
+
+                if isinstance(recipients, (list, tuple)):
+                    recipients = recipients[0]
+
+            obj.recipients = recipients
+            obj.subject = subject
+            obj.raw = body
+
+        obj.save()
+    except Exception as e:
+        print(e)
     
-
-
+def send_system_email(subject, body):
+    """시스템 이메일로 발송 """
+    if OS_MTA and ADMINS:
+        for to_name, to_address in ADMINS:
+            cmd = f""" echo "{{body}}" | mail -s "{{subject}}" {to_address}"""
+            sendmail = subprocess.Popen(cmd, shell=True)
+            # sendmail.wait()
 
 def chunked(iterator, chunksize):
     """

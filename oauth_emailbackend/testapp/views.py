@@ -3,8 +3,10 @@ from django.shortcuts import render
 from django.views.generic import FormView
 from django.core.mail import send_mail
 from django.contrib import messages
+from oauth_emailbackend.utils import get_use_celery
 from testapp.forms import SendEmailForm
 from django.utils.timezone import now
+from django.apps import apps
 
 class SendEmailView(FormView):
     form_class = SendEmailForm
@@ -20,7 +22,7 @@ class SendEmailView(FormView):
                 email = emailclient.smtp_email
 
             initial['from_address'] = email
-            initial['to_address']   = 'odop@youhasoft.com'
+            initial['to_address']   = 'ssoizo@naver.com'
             initial['subject']      = 'OAuth Email Test %s' % now()
             initial['body']         = '''Hello me!\nOAuth Email Bod %s!\n
 피로에 지친 교수들…병동 축소 이어 근무시간 줄이기
@@ -47,11 +49,15 @@ class SendEmailView(FormView):
                     data['body'], 
                     data['from_address'], 
                     [data['to_address']],
-                    fail_silently=False)
+                    fail_silently=True
+                    )
         
         print('-success: %s' % success)
         if success:
-            messages.success(self.request, '이메일을 성공적으로 발송하였습니다.')
+            if get_use_celery:
+                messages.info(self.request, '이메일을 발송 예약하였습니다. 발송 내역을 확인하십시오.')
+            else:
+                messages.success(self.request, '이메일을 성공적으로 발송하였습니다.')
         else:
             messages.error(self.request, '이메일을 발송 중 오류가 발생하였습니다.')
 
@@ -61,3 +67,8 @@ class SendEmailView(FormView):
         messages.error(self.request, '아래 폼 에러를 수정하십시오.')
         return super().form_invalid(form)
     
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+
+        context['use_celery'] = apps.get_app_config('oauth_emailbackend').use_celery
+        return context 

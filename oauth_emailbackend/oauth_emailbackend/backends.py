@@ -1,3 +1,4 @@
+from email.utils import make_msgid
 import smtplib
 import threading
 import ssl
@@ -7,14 +8,13 @@ from django.core.mail.message import sanitize_address
 from django.utils.functional import cached_property
 
 from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import DNS_NAME, EmailMessage, get_connection
 from django.contrib.sites.models import Site
 
 from django.apps import apps
 from oauth_emailbackend.models import EmailClient
 from .tasks import celery_send_emails
-from .utils import chunked, email_to_dict
-
+from .utils import add_send_history, chunked, email_to_dict, mark_send_history, send_system_email
 
  
 class OAuthEmailBackend(SMTPEmailBackend):
@@ -31,7 +31,7 @@ class OAuthEmailBackend(SMTPEmailBackend):
         self.bcc            = None
         self.reply_to       = None
 
-        self.emailclient_id   = kwd.get('emailclient_id', None)
+        self.emailclient_id = kwd.get('emailclient_id', None)
 
         
     def get_site_email_client(self, site=None):
@@ -90,11 +90,11 @@ class OAuthEmailBackend(SMTPEmailBackend):
 
             if not self.emailclient_id:
                 site = getattr(email_messages[0], 'site', None)
-                if not site:
-                    site = Site.objects.get(id=settings.SITE_ID)
+            if not site:
+                site = Site.objects.get(id=settings.SITE_ID)
 
             emailclient = self.get_site_email_client(site)
-            
+
             num_sent = 0
             new_conn_created = self.open(emailclient)
             if not self.connection or new_conn_created is None:
@@ -112,6 +112,10 @@ class OAuthEmailBackend(SMTPEmailBackend):
                     message.bcc = self.bcc
                 if self.reply_to:
                     message.reply_to = self.reply_to
+
+                # Message-ID를 미리 생성. SendHistory의 주키로 사용 
+                if 'Message-ID' not in message.extra_headers:
+                    message.extra_headers['Message-ID'] = make_msgid(domain=DNS_NAME)
             
             if enable_celery and apps.get_app_config('oauth_emailbackend').use_celery:
                 # Using celery.
@@ -129,15 +133,54 @@ class OAuthEmailBackend(SMTPEmailBackend):
                 num_sent += 1
             else:
                 try:
-                    for message in email_messages:
-                        sent = self._send(message)
-                        if sent:
-                            num_sent += 1
+                    for seq, message in enumerate( email_messages ):
+                        self._send(message)
+                        message_id = message.extra_headers['Message-ID']
+                        num_sent += 1
+                        add_send_history(message_id, site, message, using=emailclient.using, success=True)
+                except Exception as e:
+                    for _seq, message in enumerate( email_messages ):    
+                        if _seq >= seq:
+                            message_id  = message.extra_headers['Message-ID']
+                            subject     = message.subject
+                            add_send_history(message_id, site, message, using=emailclient.using)
+                            mark_send_history(message_id, False, str(e))
+
+                            subject = f'Email Error: {message_id}'
+                            message = str(e).replace('\n', '\\n').replace('"', '""')
+                            send_system_email(subject, message)
+                    
+                    if not self.fail_silently:
+                        raise
                 finally:
                     if new_conn_created:
                         self.close()
                         
         print('--num_sent= %d' % num_sent)
+        
         return num_sent
 
     
+    def _send(self, email_message):
+        """A helper method that does the actual sending."""
+        if not email_message.recipients():
+            return False
+        encoding = email_message.encoding or settings.DEFAULT_CHARSET
+        from_email = sanitize_address(email_message.from_email, encoding)
+        recipients = [
+            sanitize_address(addr, encoding) for addr in email_message.recipients()
+        ]
+        message = email_message.message()
+        self.connection.sendmail(
+            from_email, recipients, message.as_bytes(linesep="\r\n")
+        )
+
+        # try:
+        #     self.connection.sendmail(
+        #         from_email, recipients, message.as_bytes(linesep="\r\n")
+        #     )
+        # except smtplib.SMTPException:
+        #     if not self.fail_silently:
+        #         raise
+        #     return False
+        # return True

@@ -49,19 +49,15 @@ class OAuthAPIAdmin(admin.ModelAdmin):
 
 @admin.register(SendHistory)
 class SendHistoryAdmin(admin.ModelAdmin):
-    list_display = ('id', 'subject', 'get_recipients', 'category', #'manuscript',  #'message_id', 
-                    'arranged_time', 'sent_time', 'success', )
+    list_display = ('message_id', 'success', 'retry_count', 'subject', 'sent_time',  )
     search_fields = ('subject', 'recipients', 'message_id' ) #'manuscript__ms_number', 
     list_filter = (
-        #    ('site', NameSortedRelatedDropdownFilter),
-        #    ("sent_time", DateRangeFilterBuilder()),
            'site',
            'sent_time',
-           'category', 
         )
-    raw_id_fields = ('user', 'site') #'manuscript', 
-    readonly_fields = ('arranged_time','sent_time',  'success', 'category',   #'manuscript',
-                       'subject', 'user', 'recipients', 'site', 'body', 'message_id')
+    raw_id_fields = ('site',) #'manuscript', 
+    readonly_fields = ('arranged_time','sent_time',  'success', #'category',   #'manuscript',
+                       'subject', 'recipients', 'site', 'raw', 'error_message', 'retry_count')
     
     # actions = [resend_email, ]
     

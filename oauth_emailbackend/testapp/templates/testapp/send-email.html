@@ -15,7 +15,7 @@
 {% endblock %}
 
 {% block content %}
-    <h1 class="ui dividing header">Test Email Send
+    <h1 class="ui dividing header">Send Test Email 
         <div class="sub header">이메일 API 설정에 따라 테스트 이메일을 발송합니다.</div>
     </h1>
 
@@ -46,8 +46,12 @@
                     {% if emailclient %}
                         <table class="ui definition table">
                             <tr>
-                                <td>Send Method</td>
+                                <td>Send method</td>
                                 <td class="send-method">{{emailclient.get_send_method_display}}</td>
+                            </tr>
+                            <tr>
+                                <td>Using celery</td>
+                                <td>{{use_celery}}</td>
                             </tr>
                             <tr>
                                 <td>Sender Name</td>
@@ -57,15 +61,15 @@
                             
                             {% if emailclient.send_method == 'smtp' %}
                                 <tr>
-                                    <td>User Email</td>
+                                    <td>User email</td>
                                     <td>{{emailclient.smtp_email}}</td>
                                 </tr>
                                 <tr>
-                                    <td>SMTP Host</td>
+                                    <td>SMTP host</td>
                                     <td>{{emailclient.smtp_host}}</td>
                                 </tr>
                                 <tr>
-                                    <td>Send Method</td>
+                                    <td>TLS/SSL</td>
                                     <td>{{emailclient.get_security_protocol_display}}</td>
                                 </tr>
                                 <tr>
@@ -78,7 +82,7 @@
                                 </tr>
                             {% else %}
                                 <tr>
-                                    <td>API Account Email</td>
+                                    <td>API account email</td>
                                     <td>{{emailclient.api_email}}</td>
                                 </tr>
                                 <tr>
@@ -86,15 +90,15 @@
                                     <td>{{emailclient.oauthapi}}</td>
                                 </tr>
                                 <tr>
-                                    <td>Access Token</td>
+                                    <td>Access tToken</td>
                                     <td>{{emailclient.access_token|truncatechars:20}}</td>
                                 </tr>
                                 <tr>
-                                    <td>Refresh Token</td>
+                                    <td>Refresh token</td>
                                     <td>{{emailclient.refresh_token|truncatechars:20}}</td>
                                 </tr>
                                 <tr>
-                                    <td>Token Expiry In</td>
+                                    <td>Token expiry in</td>
                                     <td>{{emailclient.token_expiry}}</td>
                                 </tr>
                             {% endif %}

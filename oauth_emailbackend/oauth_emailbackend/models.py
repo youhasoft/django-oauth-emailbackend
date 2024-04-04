@@ -4,9 +4,8 @@ from django.db.models.signals import post_save, pre_save
 from django.utils.translation import gettext_lazy as _
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.contrib.sites.models import Site, clear_site_cache
+from django.contrib.sites.models import Site
 from builtins import isinstance
-from django.utils.timezone import now
 from django.conf import settings
 from django.utils.encoding import smart_str
 from oauth_emailbackend.utils import get_provider_instance, get_provider_name
@@ -15,32 +14,6 @@ from oauth_emailbackend.utils import get_provider_instance, get_provider_name
 # from servermgt.utils import send_itsm_incident_message
 
 User = get_user_model()
-
-class SendHistory(models.Model):
-    site = models.ForeignKey(Site, on_delete=models.CASCADE)
-    category = models.CharField('분류', max_length=20, null=True, blank=True, #default='default', choices=proc_choices.PROC_EMAIL_KEYS
-                                )
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    recipients = models.CharField('수신자들', max_length=1200, null=True, blank=True)
-    
-    subject = models.CharField('타이틀', max_length=200)
-    body = models.TextField('본문', null=True, blank=True)
-    
-    arranged_time = models.DateTimeField("예약시간", auto_now_add=True)
-    sent_time = models.DateTimeField("발송시간", null=True, blank=True)
-    success = models.BooleanField(null=True,)
-    
-    # by odop 2021.10.14 / added
-    # 이메일 메시지 아이디... 발송 이메일을 웹에서 확인하고자 할 때 키로 사용된다.
-    message_id = models.UUIDField(null=True, blank=True)
-
-    class Meta:
-        verbose_name = verbose_name_plural = _('Email Sending History') 
-        db_table = 'oauthemailbackend_emailsendhistory'
-        
-    def __str__(self):
-        return self.subject
-
 
 EMAIL_SEND_METHODS = (
     ('smtp', _('사용자 지정 SMTP 서버')),
@@ -81,9 +54,6 @@ class OAuthAPI(models.Model):
     def provider_instance(self):
         return get_provider_instance( self.provider )
     
-    
-
-
 class EmailClient(models.Model):
     """
     사이트별 이메일 발송에 사용할 클라이언트 
@@ -105,7 +75,7 @@ class EmailClient(models.Model):
     oauthapi  = models.ForeignKey(OAuthAPI, null=True, blank=True, verbose_name=_('OAuth API'), on_delete=models.SET_NULL)
     access_token = models.TextField('접속 Token', null=True, blank=True)
     refresh_token = models.TextField('갱신 Token', null=True, blank=True)
-    token_expiry = models.DateTimeField('다음 Token 갱신일', null=True, blank=True, help_text='갱신일 이전에 자동 갱신 시도합니다.')
+    token_expiry = models.DateTimeField('Token 유효기간', null=True, blank=True, help_text='갱신일 이전에 자동 갱신 시도합니다.')
 
     # smtp option
     smtp_email = models.EmailField("SMTP 계정 이메일", null=True, blank=True)
@@ -135,6 +105,9 @@ class EmailClient(models.Model):
             return 'smtp'
         
     def sendmail(self, from_email, recipients, message_as_byte):
+        """
+        EmailClient가 EmailBackend의 connection 역할을 함 
+        """
         if not self.is_active or self.send_method == "smtp":
             raise Exception("Can not sendamil. is_active=%s, send_model=%s" % 
                             (self.is_active, self.send_method))
@@ -164,38 +137,26 @@ pre_save.connect(__clear_site_cache, sender=EmailClient)
 
 
 
-
-
-def add_mail_history(site, category, user, recipients, subject, body, 
-                     manuscript=None, 
-                     message_id=None,
-                     using='default'): 
-    """
-     발송히스토리를 생성한다.
-    """
-    obj = SendHistory.objects.using(using).create(
-        site=site,
-        category=category,
-        user=user,
-        recipients=recipients,
-        subject=subject,
-        body=body,
-        message_id=message_id,
-        )
-    # if isinstance(manuscript, Manuscript):
-    #     obj.manuscript = manuscript
-    #     obj.save(update_fields=['manuscript'])
+class SendHistory(models.Model):
+    message_id = models.CharField(max_length=100, editable=False, primary_key=True)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    recipients = models.CharField('수신자들', max_length=1200, null=True, blank=True)
     
-    return obj.pk
+    subject = models.CharField('제목', max_length=200, null=True)
+    raw = models.TextField('메시지 원본', null=True, blank=True)
     
-def mark_email_sent(pk, success):
-    """
-    실제발송시간을 마크한다.
-    """
-    try:
-        obj = SendHistory.objects.filter(id=pk)
-        obj.update(sent_time=now(), success=bool(success))
-    except Exception as e:
-        print("-mark_email_sent error for %r \n%r" % (pk, e))
-        subject = '이메일 발송 기록 오류.\n\n%r' % (e,)
-        # send_itsm_incident_message(subject, None, send_type='LM')
+    arranged_time = models.DateTimeField("예약시간", auto_now_add=True)
+    sent_time = models.DateTimeField("발송 완료시간", null=True, blank=True)
+    success = models.BooleanField(null=True, default=None)
+
+    error_message = models.TextField(null=True, blank=True)
+    retry_count = models.PositiveSmallIntegerField(default=0)
+    
+
+    class Meta:
+        verbose_name = verbose_name_plural = _('Email Sending History') 
+        db_table = 'oauthemailbackend_emailsendhistory'
+        
+    def __str__(self):
+        return self.message_id
+

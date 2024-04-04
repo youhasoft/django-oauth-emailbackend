@@ -3,7 +3,7 @@ import base64
 from email.message import Message
 from email.mime.base import MIMEBase
 import subprocess
-from typing import Any, Optional
+from typing import Any, Optional, Type, TypeVar
 import typing
 
 from django.conf import settings
@@ -14,6 +14,10 @@ from functools import lru_cache
 from django.utils.timezone import now
 from django.core.mail import EmailMessage
 from django.contrib.sites.models import Site
+from django.db.models import Model
+
+T = TypeVar('T', bound=Model)
+
 
 
 OS_MTA = getattr( settings, "OAUTH_EMAILBACKEND_MTA", None)
@@ -44,25 +48,26 @@ def get_use_celery():
 def _strip_message_id(message_id):
     return message_id.strip()[1:-1]
 
+def mark_send_history_by_instance(instance: Type[T], success: bool, error_message: typing.Optional[str]=None, retry_count: typing.Optional[int]=0) -> None:
+    try:
+        instance.mark(success, error_message, retry_count)
+    except Exception as e:
+        print(e)
+        
 def mark_send_history(message_id, success: bool, error_message: typing.Optional[str]=None, retry_count: typing.Optional[int]=0) -> None:
     """발송이력을 마크한다."""
     from .models import SendHistory 
 
     try:
         obj = SendHistory.objects.get(message_id=_strip_message_id(message_id))
-        obj.sent_time   = now()
-        obj.success     = success 
-        obj.retry_count = retry_count
-        obj.error_message = error_message if not success else None 
-        
-        obj.save()
+        obj.mark(success, error_message, retry_count)
         
     except Exception as e:
         print(e)
         # Send error message using user's os system email
         # send_system_email(subject, body)
 
-def add_send_history(message_id, site: Site, message: Optional[EmailMessage | Message], using='default', success=None, **kwargs) -> None: 
+def add_send_history(message_id, site: Site, message: Optional[EmailMessage | Message], using='default', success=None, **kwargs) -> Optional[ Type[T]]: 
     """ 발송히스토리를 생성한다. """
     from .models import SendHistory 
     try:
@@ -101,8 +106,25 @@ def add_send_history(message_id, site: Site, message: Optional[EmailMessage | Me
             obj.raw = body
 
         obj.save()
+        return obj
+    
     except Exception as e:
         print(e)
+
+def update_message_id(old_id, new_id):
+    from .models import SendHistory 
+
+    try:
+        obj = SendHistory.objects.get(message_id=_strip_message_id(old_id))
+        print('#1', obj)
+        obj.message_id = _strip_message_id(new_id)
+        obj.save(update_fields=['message_id'])
+        print('#2', obj)
+
+        return True
+    except Exception as e:
+        print(e)
+        return False
     
 def send_system_email(subject, body):
     """시스템 이메일로 발송 """

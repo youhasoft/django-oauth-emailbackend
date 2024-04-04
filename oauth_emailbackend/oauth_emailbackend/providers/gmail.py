@@ -19,7 +19,7 @@ from googleapiclient.errors import HttpError
 from django.utils.timezone import now, make_aware
 import logging
 
-from oauth_emailbackend.utils import add_send_history, mark_send_history
+from oauth_emailbackend.utils import add_send_history, mark_send_history, update_message_id
 from ..providers import ProviderInterface
 # from google.oauth2.credentials import Credentials
 
@@ -41,6 +41,7 @@ OAUTH2ENDPOINT_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 
 CALLBACK_STATE_SPLITTER = '||'
 SCOPES = ['https://www.googleapis.com/auth/gmail.send',
+          'https://www.googleapis.com/auth/gmail.metadata',
           "https://www.googleapis.com/auth/userinfo.email"]
 
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
@@ -135,9 +136,8 @@ class OAuthProvider(ProviderInterface):
         # https://developers.google.com/identity/protocols/oauth2#expiration
         credentials = self._get_credentials(emailclient)
         
-        print("+credentials.valid: ", credentials.valid)
+        print("+ Credentials.valid: ", credentials.valid)
         if not credentials.valid:
-            
             request = google.auth.transport.requests.Request()
             credentials.refresh(request)
             
@@ -148,7 +148,6 @@ class OAuthProvider(ProviderInterface):
                     emailclient.token_expiry = expiry; 
 
                 emailclient.save(  )
-                print('[*] Token refreshed!')
 
         return True
     
@@ -167,39 +166,36 @@ class OAuthProvider(ProviderInterface):
 
         return credentials
 
-    def sendmail(self, emailclient: Type[T], message_as_byte: ByteString, **kwargs):
+    def sendmail(self, emailclient: Type[T], message_as_byte: ByteString, **kwargs) -> str:
         """
         각 이메일 backend의 connection에서 구현되는 메시지로 최종적으로 이메일이 발송되는 메쏘드임 
         """
-
         if emailclient.token_expiry <= now():
             self.refresh_access_token(emailclient)
 
         credentials = self._get_credentials(emailclient)
         service = discovery.build("gmail", "v1", credentials=credentials)
 
+        userId = 'me'
+
         # encoded message
         encoded_message = base64.urlsafe_b64encode(message_as_byte).decode()
         create_message = {"raw": encoded_message}
         send_message = (
             service.users()
-            .messages()
-            .send(userId="me", body=create_message)
-            .execute()
+                .messages()
+                .send(userId=userId, body=create_message)
+                .execute()
         )
-        print(f'Message Id: {send_message["id"]}')
-            # print(f"An error occurred: {error}")
-            # mail = message_from_bytes(message_as_byte)
-            # message_id = mail['Message-ID']
-            # print('message_id=', message_id)
-            # subject = mail['Subject']
-            # if 'subject' not in kwargs:
-            #     kwargs['subject'] = subject
 
-            # print(kwargs)
+        # mail = message_from_bytes(message_as_byte)
+        # old_message_id = mail.get('Message-ID')
 
-            # add_send_history(message_id, emailclient.site, mail, emailclient.using, **kwargs)
-            # print('---x mark_send_history')
-            # mark_send_history(message_id, False, str(error))
-        
-        
+        # 최종 발송된 메일의 Message-ID를 확인하여 업데이트한다.
+        messageId = send_message["id"]
+        message_info = service.users().messages().get(id=messageId, userId=userId, format="metadata").execute()
+        headers = dict([ (x['name'], x['value']) for x in message_info['payload']['headers']])
+        new_message_id = headers.get('Message-Id', None)
+        print('new_message_id#1=', new_message_id)
+
+        return new_message_id

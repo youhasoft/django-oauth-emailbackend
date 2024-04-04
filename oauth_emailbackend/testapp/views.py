@@ -54,7 +54,7 @@ class SendEmailView(FormView):
         
         print('-success: %s' % success)
         if success:
-            if get_use_celery:
+            if get_use_celery():
                 messages.info(self.request, '이메일을 발송 예약하였습니다. 발송 내역을 확인하십시오.')
             else:
                 messages.success(self.request, '이메일을 성공적으로 발송하였습니다.')

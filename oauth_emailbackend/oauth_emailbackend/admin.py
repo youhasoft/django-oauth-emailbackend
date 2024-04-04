@@ -53,12 +53,14 @@ class SendHistoryAdmin(admin.ModelAdmin):
     search_fields = ('subject', 'recipients', 'message_id' ) #'manuscript__ms_number', 
     list_filter = (
            'site',
+           'success',
            'sent_time',
+           'retry_count'
         )
     raw_id_fields = ('site',) #'manuscript', 
     readonly_fields = ('arranged_time','sent_time',  'success', #'category',   #'manuscript',
                        'subject', 'recipients', 'site', 'raw', 'error_message', 'retry_count')
-    
+    search_fields = ['message_id', 'subject']
     # actions = [resend_email, ]
     
     def has_add_permission(self, request, obj=None):

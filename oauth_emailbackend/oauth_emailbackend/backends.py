@@ -14,7 +14,7 @@ from django.contrib.sites.models import Site
 from django.apps import apps
 from oauth_emailbackend.models import EmailClient
 from .tasks import celery_send_emails
-from .utils import add_send_history, chunked, email_to_dict, mark_send_history, send_system_email
+from .utils import add_send_history, chunked, email_to_dict, mark_send_history, mark_send_history_by_instance, send_system_email, update_message_id
 
  
 class OAuthEmailBackend(SMTPEmailBackend):
@@ -134,10 +134,16 @@ class OAuthEmailBackend(SMTPEmailBackend):
             else:
                 try:
                     for seq, message in enumerate( email_messages ):
-                        self._send(message)
                         message_id = message.extra_headers['Message-ID']
+                        history_obj = add_send_history(message_id, site, message, using=emailclient.using,)
+                        new_message_id = self._send(message)
+                        if new_message_id:
+                            isok = update_message_id(message_id, new_message_id)
+                            mark_send_history(new_message_id if isok else message_id, True)
+                        else:
+                            mark_send_history_by_instance(history_obj, True)
+
                         num_sent += 1
-                        add_send_history(message_id, site, message, using=emailclient.using, success=True)
                 except Exception as e:
                     for _seq, message in enumerate( email_messages ):    
                         if _seq >= seq:
@@ -171,10 +177,9 @@ class OAuthEmailBackend(SMTPEmailBackend):
             sanitize_address(addr, encoding) for addr in email_message.recipients()
         ]
         message = email_message.message()
-        self.connection.sendmail(
+        new_message_id = self.connection.sendmail(
             from_email, recipients, message.as_bytes(linesep="\r\n")
         )
-
         # try:
         #     self.connection.sendmail(
         #         from_email, recipients, message.as_bytes(linesep="\r\n")
@@ -184,3 +189,5 @@ class OAuthEmailBackend(SMTPEmailBackend):
         #         raise
         #     return False
         # return True
+
+        return new_message_id

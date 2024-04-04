@@ -9,6 +9,7 @@ from builtins import isinstance
 from django.conf import settings
 from django.utils.encoding import smart_str
 from oauth_emailbackend.utils import get_provider_instance, get_provider_name
+from django.utils.timezone import now
 # from simsaprocess import proc_choices
 # from manuscript.models import Manuscript
 # from servermgt.utils import send_itsm_incident_message
@@ -104,7 +105,7 @@ class EmailClient(models.Model):
         else:
             return 'smtp'
         
-    def sendmail(self, from_email, recipients, message_as_byte):
+    def sendmail(self, from_email, recipients, message_as_byte) -> str:
         """
         EmailClient가 EmailBackend의 connection 역할을 함 
         """
@@ -116,9 +117,10 @@ class EmailClient(models.Model):
             'recipients': recipients,
         }
         provider = self.oauthapi.provider_instance
-        provider.sendmail(emailclient=self,
+        new_message_id = provider.sendmail(emailclient=self,
                           message_as_byte=message_as_byte, 
                           **kwd)
+        return new_message_id
 
     def send_messages(self, ):
         pass
@@ -138,7 +140,7 @@ pre_save.connect(__clear_site_cache, sender=EmailClient)
 
 
 class SendHistory(models.Model):
-    message_id = models.CharField(max_length=100, editable=False, primary_key=True)
+    message_id = models.CharField(max_length=100, editable=False)
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     recipients = models.CharField('수신자들', max_length=1200, null=True, blank=True)
     
@@ -159,4 +161,12 @@ class SendHistory(models.Model):
         
     def __str__(self):
         return self.message_id
+
+    def mark(self, success, error_message, retry_count):
+        self.sent_time   = now()
+        self.success     = success 
+        self.retry_count = retry_count
+        self.error_message = error_message if not success else None 
+        
+        self.save()
 

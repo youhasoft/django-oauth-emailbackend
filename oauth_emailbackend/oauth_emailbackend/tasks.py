@@ -1,7 +1,7 @@
 from django.conf import settings
 from six import string_types
 from django.core.mail import EmailMessage, get_connection
-from .utils import add_send_history, dict_to_email, email_to_dict, mark_send_history 
+from .utils import add_send_history, dict_to_email, email_to_dict, mark_send_history, mark_send_history_by_instance 
 from .models import EmailClient
 
 try:
@@ -70,7 +70,7 @@ try:
             print('message_id:', message_id)
 
             if retry_count == 0 and emailclient.site:
-                add_send_history(message_id, emailclient.site, msg, using=emailclient.using)
+                history_obj = add_send_history(message_id, emailclient.site, msg, using=emailclient.using)
 
             try:
                 # 다시 EmailMessage로 변환 
@@ -78,8 +78,8 @@ try:
                 print('*** sent:', sent)
                 if sent:
                     num_sent += sent
-                if emailclient.site:
-                    mark_send_history(message_id, bool(sent))
+                # if emailclient.site:
+                #     mark_send_history_by_instance(history_obj, bool(sent))
                 
                 if emailclient.debug:
                     logger.debug("Successfully sent email message to %r.", message['to'])
@@ -90,7 +90,7 @@ try:
                     if retry_count > CELERY_MAX_RETRY:
                         logger.warning("Sending emails to %r was stopped because the maximum number of attempts was %d.", message['to'], CELERY_MAX_RETRY)
                 if emailclient.site:
-                    mark_send_history(message_id, False, str(e), retry_count)
+                    mark_send_history_by_instance(history_obj, False, str(e), retry_count)
 
                 if retry_count > CELERY_MAX_RETRY:
                     # [TODO] send history에 최종 발송 오류 표시 

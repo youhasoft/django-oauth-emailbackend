@@ -154,7 +154,6 @@ class SendHistory(models.Model):
     error_message = models.TextField(null=True, blank=True)
     retry_count = models.PositiveSmallIntegerField(default=0)
     
-
     class Meta:
         verbose_name = verbose_name_plural = _('Email Sending History') 
         db_table = 'oauthemailbackend_emailsendhistory'

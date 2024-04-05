@@ -66,16 +66,16 @@ try:
         for message in messages:
             message_id  = message['headers']['Message-ID']
             msg         = dict_to_email(message)
-
-            print('message_id:', message_id)
-
-            if retry_count == 0 and emailclient.site:
-                history_obj = add_send_history(message_id, emailclient.site, msg, using=emailclient.using)
+            
+            # Celery 호출 전에 EmailBackend에서 history를 먼전 등록함으로써
+            # celery 미실행시에도 내역을 확인할 수 있도록 함  
+            # if retry_count == 0 and emailclient.site:
+            #     history_obj = add_send_history(message_id, emailclient.site, msg, using=emailclient.using)
 
             try:
                 # 다시 EmailMessage로 변환 
                 sent = conn.send_messages([msg], enable_celery=False)
-                print('*** sent:', sent)
+                # print('*** sent:', sent)
                 if sent:
                     num_sent += sent
                 # if emailclient.site:
@@ -100,7 +100,7 @@ try:
                                         kwargs=retry_kwargs,
                                         exc=e, 
                                         throw=False,
-                                        countdown=1*10, # after 60 seconds
+                                        countdown=1*60, # after 60 seconds
                                         max_retries=CELERY_MAX_RETRY,)
                 print(">>> Retry: %r" % ret)
 

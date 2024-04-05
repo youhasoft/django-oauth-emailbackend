@@ -1,14 +1,12 @@
 
-from datetime import timedelta
-import datetime
-from email import message_from_bytes
+
 import os
-from django.http import QueryDict
 from django.utils.translation import gettext_lazy as _
 from django.core.handlers.wsgi import WSGIRequest
-from typing import ByteString, Optional, Tuple, TypeVar, Type
+from typing import ByteString, Dict, Optional, Tuple, TypeVar, Type
 from django.db.models import Model
 
+from click import DateTime
 import google_auth_oauthlib
 from oauth_emailbackend.models import EmailClient
 import base64
@@ -20,8 +18,7 @@ from django.utils.timezone import now, make_aware
 import logging
 
 from oauth_emailbackend.utils import add_send_history, mark_send_history, update_message_id
-from ..providers import ProviderInterface
-# from google.oauth2.credentials import Credentials
+from ..providers import OAuthData, ProviderInterface
 
 # # api 로그 수준 조정 
 # logging.getLogger('googleapicliet.discovery_cache').setLevel(logging.ERROR)
@@ -48,7 +45,6 @@ os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
 T = TypeVar('T', bound=Model)
 
-UTC = datetime.timezone(datetime.timedelta(hours=0))
 
 class OAuthProvider(ProviderInterface):
     provider_key = 'gmail'
@@ -88,7 +84,7 @@ class OAuthProvider(ProviderInterface):
         
         return authorization_url
     
-    def complete_callback(self, request:WSGIRequest) -> Tuple[str, str, str]:
+    def complete_callback(self, request:WSGIRequest) -> Tuple[str, OAuthData]:
         """
         # 인증후 전송된 값을 받아 완료하고, EmailClient.id와 토큰을 반환한다.
         # callback에서
@@ -118,17 +114,14 @@ class OAuthProvider(ProviderInterface):
         # Get profile
         session = flow.authorized_session()
         profile_info = session.get('https://www.googleapis.com/userinfo/v2/me').json()
+        extra_attribs = { 'api_email': profile_info['email']}
 
-        attribs = { 'api_email': profile_info['email']}
-        if credentials.refresh_token:
-            attribs['refresh_token'] = credentials.refresh_token
-        if credentials.expiry:
-            # token의 기본 유효시간은 1시간이다.
-            expiry = make_aware( credentials.expiry, timezone = UTC )
-            attribs['token_expiry'] = expiry;  #now() + timedelta(seconds = credentials.expires_in )
+        oauthdata     = OAuthData(credentials.token,
+                                    credentials.refresh_token, 
+                                    credentials.expiry, 
+                                    extra_attribs)
 
-
-        return (emailclient_id, credentials.token, attribs)
+        return (emailclient_id, oauthdata)
 
     def refresh_access_token(self, emailclient: Type[T]) -> bool:
         # [TODO]
@@ -196,6 +189,5 @@ class OAuthProvider(ProviderInterface):
         message_info = service.users().messages().get(id=messageId, userId=userId, format="metadata").execute()
         headers = dict([ (x['name'], x['value']) for x in message_info['payload']['headers']])
         new_message_id = headers.get('Message-Id', None)
-        print('new_message_id#1=', new_message_id)
 
         return new_message_id

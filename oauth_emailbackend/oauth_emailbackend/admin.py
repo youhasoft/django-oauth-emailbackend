@@ -1,7 +1,8 @@
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
+from django.template.defaultfilters import truncatechars
 from django.urls import path
-from oauth_emailbackend.utils import get_provider_name
+from oauth_emailbackend.utils import get_provider_name, truncate_middle
 from django.utils.translation import gettext_lazy, gettext_lazy as _
 from django.core.mail.message import EmailMultiAlternatives
 from django.utils.html import strip_tags
@@ -49,7 +50,7 @@ class OAuthAPIAdmin(admin.ModelAdmin):
 
 @admin.register(SendHistory)
 class SendHistoryAdmin(admin.ModelAdmin):
-    list_display = ('message_id', 'success', 'retry_count', 'subject', 'sent_time',  )
+    list_display = ('title', 'success', 'retry_count', 'subject', 'sent_time',  )
     search_fields = ('subject', 'recipients', 'message_id' ) #'manuscript__ms_number', 
     list_filter = (
            'site',
@@ -57,11 +58,9 @@ class SendHistoryAdmin(admin.ModelAdmin):
            'sent_time',
            'retry_count'
         )
-    raw_id_fields = ('site',) #'manuscript', 
-    readonly_fields = ('arranged_time','sent_time',  'success', #'category',   #'manuscript',
-                       'subject', 'recipients', 'site', 'raw', 'error_message', 'retry_count')
-    search_fields = ['message_id', 'subject']
-    # actions = [resend_email, ]
+    raw_id_fields   = ('site',) #'manuscript', 
+    search_fields   = ['message_id', 'subject']
+    readonly_fields = [field.name for field in SendHistory._meta.get_fields()]
     
     def has_add_permission(self, request, obj=None):
         return False
@@ -69,12 +68,11 @@ class SendHistoryAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return True
     
-    def get_recipients(self, obj):
-        try:
-            return ', '.join(eval(obj.recipients))
-        except:
-            return obj.recipients
-        
+    def title(self, obj):
+        return truncate_middle(obj.message_id, 40)
+    title.short_description = 'Message-Id'
+       
+
 
 
 @admin.register(EmailClient)

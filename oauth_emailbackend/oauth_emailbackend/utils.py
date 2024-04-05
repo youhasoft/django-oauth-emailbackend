@@ -227,3 +227,14 @@ def dict_to_email(messagedict):
         messagedict["mixed_subtype"] = mixed_subtype  # bring back mixed subtype for 'retry'
 
     return ret
+
+
+def truncate_middle(line, n):
+    if len(line) <= n:
+        # string is already short-enough
+        return line
+    # half of the size, minus the 3 .'s
+    n_2 = int(int(n) / 2 - 3)
+    # whatever's left
+    n_1 = n - n_2 - 3
+    return '{0}...{1}'.format(line[:n_1], line[-n_2:])

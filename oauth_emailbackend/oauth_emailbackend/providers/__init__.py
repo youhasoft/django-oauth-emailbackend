@@ -5,13 +5,60 @@ from abc import ABCMeta, abstractmethod
 from django.http import QueryDict
 from django.urls import reverse
 from django.core.handlers.wsgi import WSGIRequest
-from typing import ByteString, List, Tuple, TypeVar, Type, Optional
+from typing import ByteString, Dict, List, Tuple, TypeVar, Type, Optional
 from django.db.models import Model
 from django.conf import settings
 from urllib.parse import urlparse
 from oauth_emailbackend.models import EmailClient
+# from datetime import datetime
+from django.utils.timezone import now, make_aware
+import datetime
 
 T = TypeVar('T', bound=Model)
+
+UTC = datetime.timezone(datetime.timedelta(hours=0))
+
+class OAuthData:
+    _token_expiry = None 
+
+    def __init__(self, access_token: str, 
+                 refresh_token: str, 
+                 token_expiry: datetime.datetime, 
+                 extra_attribs: Dict) -> None:
+        
+        self._access_token = access_token
+        self._refresh_token = refresh_token
+
+        if token_expiry:
+            self._token_expiry = make_aware( token_expiry, timezone = UTC )
+
+        self._extra_attribs = extra_attribs
+
+    @property 
+    def access_token(self):
+        return self._access_token
+    
+    @property 
+    def refresh_token(self):
+        return self._refresh_token
+    
+    @property 
+    def token_expiry(self):
+        return self._token_expiry
+    
+    @property 
+    def extra_attribs(self):
+        return self.extra_attribs
+    
+    def get_emailclient_atrributes(self) -> Dict:
+        attribs = self._extra_attribs
+        attribs['access_token']  = self.access_token
+        if self.refresh_token:
+            attribs['refresh_token'] = self.refresh_token
+        if self.token_expiry:
+            attribs['token_expiry']  = self.token_expiry
+
+        return attribs
 
 
 class ProviderInterface(metaclass=ABCMeta):
@@ -54,7 +101,7 @@ class ProviderInterface(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def complete_callback(self, data: QueryDict):
+    def complete_callback(self, data: QueryDict) -> Tuple[str, OAuthData]:
         """
         콜백 정보를 받아 데이터베이스에 토큰을 저장한다.
         """

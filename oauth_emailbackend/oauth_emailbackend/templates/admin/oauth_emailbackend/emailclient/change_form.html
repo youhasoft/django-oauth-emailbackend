@@ -29,6 +29,13 @@
 {% endblock %}
 {% block extrahead %}{{ block.super }}
     <script>
+        function setCookie(cname, cvalue, exdays) {
+            const d = new Date();
+            d.setTime(d.getTime() + (exdays*24*60*60*1000));
+            let expires = "expires="+ d.toUTCString();
+            document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+        }
+
         const original_pk = '{{original.pk}}';
         function loginOAuth() {
             let url = '';
@@ -36,16 +43,20 @@
                 alert('먼저 폼을 저장한 후 로그인하십시오.');
                 return;
             }
+            
             let send_method = django.jQuery('input[name=send_method]:checked').val();
             if (send_method == 'smtp') {
                 alert('[사용자 지정 SMTP 서버 발송방법]에서는 선택할 수 없는 기능입니다.');
                 return;
             }
             
+
             let oauthapi = django.jQuery('#id_oauthapi option:selected');
             if (oauthapi && oauthapi.val()) {
-                let url = '../redirect2provider/' + oauthapi.val()
-                var win = window.open(url, '_blank', 'width=1000,height=800');
+                setCookie('oeb_form', django.jQuery('#emailclient_form').serialize(), 1);
+                location.href = '../redirect2provider/' + oauthapi.val();
+                
+                //var win = window.open(url, '_blank', 'width=1000,height=800');
             } else {
                 alert('Invalid OAuth API');
             }
@@ -83,6 +94,8 @@
                 django.jQuery('#id_oauthapi').on('change', onProviderChanged );
                 django.jQuery('#id_oauthapi').trigger('change');
             }
+
+            setCookie('oeb_setting_url', window.location.href, 1);
         });
     </script>
 {% endblock %}

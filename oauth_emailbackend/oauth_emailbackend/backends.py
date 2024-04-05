@@ -116,6 +116,10 @@ class OAuthEmailBackend(SMTPEmailBackend):
                 # Message-ID를 미리 생성. SendHistory의 주키로 사용 
                 if 'Message-ID' not in message.extra_headers:
                     message.extra_headers['Message-ID'] = make_msgid(domain=DNS_NAME)
+
+                # 발송내역 생성 
+                message_id= message.extra_headers['Message-ID']
+                add_send_history(message_id, emailclient.site, message, using=emailclient.using)
             
             if enable_celery and apps.get_app_config('oauth_emailbackend').use_celery:
                 # Using celery.
@@ -135,13 +139,13 @@ class OAuthEmailBackend(SMTPEmailBackend):
                 try:
                     for seq, message in enumerate( email_messages ):
                         message_id = message.extra_headers['Message-ID']
-                        history_obj = add_send_history(message_id, site, message, using=emailclient.using,)
+                        # history_obj = add_send_history(message_id, site, message, using=emailclient.using,)
                         new_message_id = self._send(message)
                         if new_message_id:
                             isok = update_message_id(message_id, new_message_id)
                             mark_send_history(new_message_id if isok else message_id, True)
                         else:
-                            mark_send_history_by_instance(history_obj, True)
+                            mark_send_history(message_id, True)
 
                         num_sent += 1
                 except Exception as e:
@@ -149,7 +153,6 @@ class OAuthEmailBackend(SMTPEmailBackend):
                         if _seq >= seq:
                             message_id  = message.extra_headers['Message-ID']
                             subject     = message.subject
-                            add_send_history(message_id, site, message, using=emailclient.using)
                             mark_send_history(message_id, False, str(e))
 
                             subject = f'Email Error: {message_id}'
@@ -162,7 +165,7 @@ class OAuthEmailBackend(SMTPEmailBackend):
                     if new_conn_created:
                         self.close()
                         
-        print('--num_sent= %d' % num_sent)
+        print('[+] Sent Num = %d' % num_sent)
         
         return num_sent
 

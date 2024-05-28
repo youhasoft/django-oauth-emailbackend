@@ -6,7 +6,7 @@ def packaging_pipy():
 
     shutil.copytree('oauth_emailbackend/oauth_emailbackend', 
                     'dist/src/oauth_emailbackend')
-    for f in ('LICENSE', 'README.md', 'pyproject.toml'):
+    for f in ('LICENSE', 'README.md', 'pyproject.toml', 'MANIFEST.in'):
         if os.path.exists(f):
             shutil.copyfile(f, os.path.join('dist', f))
 

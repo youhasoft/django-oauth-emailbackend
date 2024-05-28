@@ -1,0 +1,5 @@
+include AUTHORS
+include LICENSE
+include README.rst
+include ChangeLog.rst
+recursive-include src/oauth_emailbackend *.html *.xml *.po *.mo *.js

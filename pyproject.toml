@@ -1,6 +1,6 @@
 [project]
 name = "django-oauth-emailbackend"
-version = "0.1.3"
+version = "0.1.4"
 authors = [
   { name="Sun-Yeon Lee", email="odop@youhasoft.com" },
 ]

@@ -128,3 +128,5 @@ class EmailClientAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect(oauthapi.get_authorization_url(request, 
                                                                    emailclient_id=emailclient_id))
+
+    

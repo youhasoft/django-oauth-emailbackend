@@ -1,6 +1,6 @@
 [project]
 name = "django-oauth-emailbackend"
-version = "0.1.4"
+version = "0.1.5"
 authors = [
   { name="Sun-Yeon Lee", email="odop@youhasoft.com" },
 ]
@@ -31,5 +31,5 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/youhasoft/django-oauth-emailbackend"
-Issues = "https://github.com/youhasoft/django-oauth-emailbackend/issues"
+Issues   = "https://github.com/youhasoft/django-oauth-emailbackend/issues"
 

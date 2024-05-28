@@ -3,8 +3,9 @@ from typing import Any, Mapping
 from django import forms
 from django.core.files.base import File
 from django.db.models import Model
-from django.forms import ModelForm, RadioSelect, Select
+from django.forms import ModelForm, RadioSelect, Select, ValidationError
 from django.forms.utils import ErrorList
+from django.utils.translation import gettext_lazy as _
 
 from oauth_emailbackend.utils import get_provider_choices
 from .models import EmailClient, OAuthAPI
@@ -30,6 +31,12 @@ class EmailClientAdminForm(ModelForm):
         self.fields['refresh_token'].disabled = True
         self.fields['refresh_token'].widget.attrs['rows'] = 3
 
+    def clean_sender_name(self, ):
+        sender_name =  self.cleaned_data['sender_name']
+        if '@' in sender_name:
+            raise ValidationError(_("@를 포함할 수 없습니다."))
+        
+        return sender_name
 
 
 

@@ -70,7 +70,7 @@ class EmailClient(models.Model):
                                 default=getattr(settings, 'OAUTH_EMAILCLIENT_DBNAME', 'default'), 
                                 help_text='이메일 발송 히스토리를 저장할 때 접속할 데이터베이스 이름입니다.')
     send_method = models.CharField('발송 방법', max_length=15, default='smtp', choices=EMAIL_SEND_METHODS)
-    sender_name = models.CharField('보내는 사람 이름',  max_length=20, null=True, )
+    sender_name = models.CharField('보내는 사람 이름',  max_length=20, null=True, help_text='@가 포함되면 안됩니다.')
     debug = models.BooleanField('디버그', default=True, help_text='로그를 작성합니다.')
 
 

@@ -67,7 +67,9 @@ def mark_send_history(message_id, success: bool, error_message: typing.Optional[
         # Send error message using user's os system email
         # send_system_email(subject, body)
 
-def add_send_history(message_id, site: Site, message: Optional[EmailMessage | Message], using='default', success=None, **kwargs) -> Optional[ Type[T]]: 
+# python 3.9 compatibility
+# def add_send_history(message_id, site: Site, message: Optional[EmailMessage | Message], using='default', success=None, **kwargs) -> Optional[ Type[T]]: 
+def add_send_history(message_id, site: Site, message, using='default', success=None, **kwargs) -> Optional[ Type[T]]: 
     """ 발송히스토리를 생성한다. """
     from .models import SendHistory 
     try:

@@ -144,7 +144,7 @@ pre_save.connect(__clear_site_cache, sender=EmailClient)
 
 class SendHistory(models.Model):
     message_id = models.CharField(max_length=100, editable=False)
-    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name='emailbackend_sendhistory_set')
     recipients = models.CharField('수신자들', max_length=1200, null=True, blank=True)
     
     subject = models.CharField('제목', max_length=200, null=True)

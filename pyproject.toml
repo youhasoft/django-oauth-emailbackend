@@ -1,6 +1,6 @@
 [project]
 name = "django-oauth-emailbackend"
-version = "0.1"
+version = "0.1.2"
 authors = [
   { name="Sun-Yeon Lee", email="odop@youhasoft.com" },
 ]
@@ -10,7 +10,6 @@ requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "License :: OSI Approved :: MIT License",
@@ -23,9 +22,9 @@ classifiers = [
 dependencies = [
   'Django>3.2.8',
   'celery>5.2',
+  'google-api-core',
   'google-api-python-client',
-  'google-api-python-client',
-  'google-authors',
+  'google-auth',
   'google-auth-oauthlib',
   'google-auth-httplib2',
 ]

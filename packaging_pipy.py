@@ -14,5 +14,8 @@ def packaging_pipy():
     os.chdir('dist')
     os.system('python3 -m build')
 
+    # 업로드하려면...
+    # twine upload dist/dist/*
+
 if __name__ == "__main__":
     packaging_pipy()

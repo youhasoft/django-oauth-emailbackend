@@ -16,7 +16,7 @@ from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 from django.utils.timezone import now, make_aware
 import logging
-
+from django.utils import timezone
 from oauth_emailbackend.utils import add_send_history, mark_send_history, update_message_id
 from ..providers import OAuthData, ProviderInterface
 
@@ -129,7 +129,10 @@ class OAuthProvider(ProviderInterface):
         # https://developers.google.com/identity/protocols/oauth2#expiration
         credentials = self._get_credentials(emailclient)
         
-        print("+ Credentials.valid: ", credentials.valid)
+        print("+ Credentials.valid#1: ", credentials.valid)
+        print(dir(credentials))
+        print(credentials.expired)
+        print(credentials.expiry)
         if not credentials.valid:
             request = google.auth.transport.requests.Request()
             credentials.refresh(request)
@@ -137,7 +140,7 @@ class OAuthProvider(ProviderInterface):
             if credentials.token != emailclient.access_token:
                 emailclient.access_token = credentials.token
                 if credentials.expiry:
-                    expiry = make_aware( credentials.expiry, timezone = UTC )
+                    expiry = make_aware( credentials.expiry, timezone = timezone.utc )
                     emailclient.token_expiry = expiry; 
 
                 emailclient.save(  )

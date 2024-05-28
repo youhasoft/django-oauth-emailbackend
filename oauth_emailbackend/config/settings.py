@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     # 'oauth_emailbackend.emailbackend',
     'oauth_emailbackend',
 
+    # oauth_emailbackend test app
     'testapp',
 
     # Used for callback test.
@@ -150,11 +151,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 ADMINS = [('odop', 'odop@youhasoft.com')]
 
+
 #----- django-oauth-emailbackend settings -----#
-# OAuthCeleryEmailBackend를 이용하는 경우 CELERY_BROKER_URL 값을 설정하여야 합니다.
+# EMAIL_BACKEND를 OAuthEmailBackend 설정 
+# Celery를 이용하여 발송하는 경우 CELERY_BROKER_URL 값을 설정하여야 합니다.
 EMAIL_BACKEND                = 'oauth_emailbackend.backends.OAuthEmailBackend'
 
+# 발송내역을 저장할 DATABASE_NAME
 OAUTH_EMAILCLIENT_DBNAME     = 'default'
+
+# OAuth 목록 
 OAUTH_EMAILBACKEND_PROVIDERS = (
     'oauth_emailbackend.providers.gmail',
 )
@@ -167,7 +173,14 @@ OAUTH_EMAILBACKEND_MTA              = 'postfix' # [None|postfix]
 
 
 #----- celery settings -----#
-# * Run celery in localhost
+# Celery를 이용하여 발송할 경우 CELERY_BROKER_URL 세팅 
+# * Test run celery in localhost
 #
 # celery -A config worker -l info -E
+#
+# ../secrest.json
+# {
+#	...
+#	"CELERY_BROKER_URL": "<broker url for celery>"
+# }
 CELERY_BROKER_URL = get_secret('CELERY_BROKER_URL')

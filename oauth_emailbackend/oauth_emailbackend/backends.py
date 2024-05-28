@@ -130,7 +130,7 @@ class OAuthEmailBackend(SMTPEmailBackend):
                 messages = [email_to_dict(msg) for msg in email_messages]
                 
                 for chunk in chunked(messages, celery_email_chunk_size):
-                    celery_send_emails.delay(chunk, 
+                    celery_send_emails.delay(chunk,  
                                                 emailclient.id, 
                                                 emailclient.using,
                                                 backend_kwargs=self.init_kwargs)
@@ -149,6 +149,7 @@ class OAuthEmailBackend(SMTPEmailBackend):
 
                         num_sent += 1
                 except Exception as e:
+                    print(e)
                     for _seq, message in enumerate( email_messages ):    
                         if _seq >= seq:
                             message_id  = message.extra_headers['Message-ID']
@@ -180,6 +181,8 @@ class OAuthEmailBackend(SMTPEmailBackend):
             sanitize_address(addr, encoding) for addr in email_message.recipients()
         ]
         message = email_message.message()
+
+        # 이 시점에서 sendmail 메쏘드를 통해 EmailClient의 sendmail이 호출됨 
         new_message_id = self.connection.sendmail(
             from_email, recipients, message.as_bytes(linesep="\r\n")
         )

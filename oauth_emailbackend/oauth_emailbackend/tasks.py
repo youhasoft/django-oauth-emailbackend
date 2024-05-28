@@ -90,7 +90,8 @@ try:
                     if retry_count > CELERY_MAX_RETRY:
                         logger.warning("Sending emails to %r was stopped because the maximum number of attempts was %d.", message['to'], CELERY_MAX_RETRY)
                 if emailclient.site:
-                    mark_send_history_by_instance(history_obj, False, str(e), retry_count)
+                    # mark_send_history_by_instance(history_obj, False, str(e), retry_count)
+                    mark_send_history(message_id, False, str(e), retry_count)
 
                 if retry_count > CELERY_MAX_RETRY:
                     # [TODO] send history에 최종 발송 오류 표시 

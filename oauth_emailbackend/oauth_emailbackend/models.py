@@ -17,8 +17,8 @@ from django.utils.timezone import now
 User = get_user_model()
 
 EMAIL_SEND_METHODS = (
-    ('smtp', _('사용자 지정 SMTP 서버')),
-    ('api', _('OAuth 이메일 API')),
+    ('smtp', _('SMTP Server')),
+    ('api', _('OAuth2 Email API')),
 )
 EMAIL_SECURITY_PROTOCOL = (
     ('tls', 'TLS'),
@@ -27,9 +27,12 @@ EMAIL_SECURITY_PROTOCOL = (
 
 class OAuthAPI(models.Model):
     provider = models.CharField(_('Provider'), max_length=140, unique=True, )
-    client_config = models.JSONField("클라이언트 설정(JSON)", 
+    client_config = models.JSONField(_("Client Config"), 
                                    null=True, 
-                                   help_text="CLIENT_ID, CLIENT_SECRET이 포함된 보안 비밀번호 json 파일")
+                                   help_text=_("""
+                                   CLIENT_ID, CLIENT_SECRET이 포함된 보안 비밀번호 json 파일, 
+                                   Gmail의 경우 '사용자인증정보 &gt;  웹 애플리케이션의 클라이언트 ID &gt; 클라이언트 보안 비밀번호' 메뉴에서
+                                   JSON(Download JSON)파일을 다운로드 받아 내용을 입력하십시오."""))
     remarks = models.TextField(_('Remarks'), null=True, blank=True)
 
     created = models.DateTimeField(auto_now_add=True)
